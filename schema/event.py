@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from typing import Any, TYPE_CHECKING
 
-from pydantic import field_validator
+from pydantic import field_validator, computed_field, model_validator
 from sqlalchemy import Column
 from sqlalchemy.types import JSON as SAJSON
 from sqlalchemy.types import TypeDecorator
@@ -50,6 +50,13 @@ class Event(EventCreate, table=True):
     group_id: int = Field(foreign_key="group.id")
     time_range: tuple[time, time] = Field(sa_column=Column(TimeRangeType))
     created_at: datetime = Field(default_factory=datetime.now)
+    expires_at: datetime = Field(default=time_range[1])
+
+    @model_validator(mode="after")
+    def calculate_expires_at(self) -> "Event":
+        if self.expires_at is None and hasattr(self, 'day') and self.time_range:
+            self.expires_at = datetime.combine(self.day, self.time_range[1])
+        return self
 
     group: "Group" = Relationship()
     rsvp_users: list["User"] = Relationship(
@@ -65,9 +72,6 @@ class Event(EventCreate, table=True):
         if isinstance(value, list) and len(value) == 2:
             return _parse_time(value[0]), _parse_time(value[1])
         return value
-
-    def expired(self) -> bool:
-        return datetime.now() > datetime.combine(self.day, self.time_range[1])
 
     def add_rsvp(self, user: "User") -> bool:
         if user in self.rsvp_users:

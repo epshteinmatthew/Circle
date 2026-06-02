@@ -50,7 +50,7 @@ class Event(EventCreate, table=True):
     group_id: int = Field(foreign_key="group.id")
     time_range: tuple[time, time] = Field(sa_column=Column(TimeRangeType))
     created_at: datetime = Field(default_factory=datetime.now)
-    expires_at: datetime = Field(default=time_range[1])
+    expires_at: datetime = Field(default_factory=datetime.now)
 
     @model_validator(mode="after")
     def calculate_expires_at(self) -> "Event":

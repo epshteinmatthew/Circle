@@ -1,10 +1,11 @@
 """Circle Flask application and schema usage example."""
 import json
+from collections.abc import Sequence
 from datetime import date, time, datetime, timezone
 
-#todo: switch to FASTAPI
-from flask import Flask, jsonify, request
-from sqlmodel import select, col
+from fastapi import FastAPI, HTTPException
+from flask import jsonify
+from sqlmodel import select, col, delete
 
 from schema import (
     Event,
@@ -19,6 +20,7 @@ from schema import (
 )
 from schema.database import get_session, init_db
 
+
 #todo: validation and refresh tokens
 
 def get_user_with_email_and_name(name:str, email:str) -> User | None:
@@ -30,15 +32,26 @@ def get_user_with_email_and_name(name:str, email:str) -> User | None:
     except:
         return None
 
+def delete_event(id:int) -> bool:
+    try:
+        with get_session() as session:
+            event = session.exec(select(Event).where(Event.id == id))
+            session.delete(event)
+            event = session.exec(select(Event).where(Event.id==id))
+            return event is None
+    except:
+        return False
+
 #todo: deep user, deep event, deep group
 #deep user: get the user and all of their events and groups
 #deep event: get the event and all of the users for RSVP and the user for create
 #deep group: idk yet
 
-app = Flask(__name__)
+app = FastAPI()
+
 init_db()
 
-@app.route("/")
+@app.get("/")
 def index() -> str:
     return "Circle — try /demo for a schema example (data in circle.db)"
 
@@ -48,86 +61,102 @@ def index() -> str:
 #these will always be the ones tied to the google account for simplicity's sake
 
 #todo: augment this to some kind of sign-up flow
-@app.route("/create_user", methods=['POST'])
-def create_user_route():
-    rdata = json.loads(request.json)
+@app.post("/create_user")
+def create_user_route(user_data: UserCreate) -> User:
     try:
         with get_session() as session:
-            new_user = create_user(UserCreate(name=rdata.name, email=rdata.email, availability=rdata.availability))
+            new_user:User = create_user(user_data)
             same_name_and_email:User|None = session.exec(select(User).where(User.name == new_user.name, User.email == new_user.email)).first()
             if same_name_and_email:
-                return "User creation failed: duplicate name and email", 409
+                raise HTTPException(status_code = 409, detail = "Duplicate name and email")
             session.add(new_user)
             session.commit()
-            return jsonify(new_user)
+            return new_user
     except:
-        return "something went wrong", 400
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
-@app.route("/get_user_with_id", methods=['GET'])
-def get_user_with_id():
-    id_req = request.args['id']
+@app.get("/get_user_with_id/{id_req}")
+def get_user_with_id(id_req) -> User:
     if not id_req:
-        return "bad request", 400
+        raise HTTPException(status_code = 400, detail = "Bad request")
     try:
         with get_session() as session:
-            user = session.exec(select(User).where(User.id == id_req)).first()
+            user:User | None = session.exec(select(User).where(User.id == id_req)).first()
             session.commit()
-            return jsonify(user)
+            if user is not None:
+                return user
+            raise HTTPException(status_code=404, detail="User not found")
     except:
-        return "something went wrong", 400
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
-@app.route("/get_all_user_events", methods=['GET'])
-def get_all_user_events():
-    id_req = request.args['id']
+
+@app.get("/get_all_user_events/{id_req}")
+def get_all_user_events(id_req) -> Sequence[Event]:
     if not id_req:
-        return "bad request", 400
-    try:
-        with get_session() as session:
-            user:User|None = session.exec(select(User).where(User.id == id_req)).first()
-            if not user:
-                return "bad request", 400
-            events = session.exec(select(Event).where(Event.created_by == user.id, Event.expires_at < datetime.now(timezone.utc))).all()
-            session.commit()
-            return jsonify(events)
-    except:
-        return "something went wrong", 400
-
-
-@app.route("/get_all_user_rsvp_events", methods=['GET'])
-def get_all_user_rsvp_events():
-    id_req = request.args['id']
-    if not id_req:
-        return "bad request", 400
+        raise HTTPException(status_code = 400, detail = "Bad request")
     try:
         with get_session() as session:
             user:User|None = session.exec(select(User).where(User.id == id_req)).first()
             if not user:
-                return "bad request", 400
-            events = session.exec(select(Event).where(col(Event.id).in_(user.rsvp_events), Event.expires_at < datetime.now(timezone.utc))).all()
+                raise HTTPException(status_code = 400, detail = "Bad request")
+            events:Sequence[Event] = session.exec(select(Event).where(Event.created_by == user.id, Event.expires_at < datetime.now(timezone.utc))).all()
             session.commit()
-            return jsonify(events)
+            return events
     except:
-        return "something went wrong", 400
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
-@app.route("/get_all_user_groups", methods=['GET'])
-def get_all_user_groups():
-    id_req = request.args['id']
+
+@app.get("/get_all_user_rsvp_events/{id_req}")
+def get_all_user_rsvp_events(id_req) -> Sequence[Event]:
     if not id_req:
-        return "bad request", 400
+        raise HTTPException(status_code = 400, detail = "Bad request")
     try:
         with get_session() as session:
             user:User|None = session.exec(select(User).where(User.id == id_req)).first()
             if not user:
-                return "bad request", 400
-            groups = session.exec(select(Group).where(col(Group.id).in_(user.groups))).all()
+                raise HTTPException(status_code=400, detail="Bad request")
+            events:Sequence[Event] = session.exec(select(Event).where(col(Event.id).in_(user.rsvp_events), Event.expires_at < datetime.now(timezone.utc))).all()
             session.commit()
-            return jsonify(groups)
+            return events
     except:
-        return "something went wrong", 400
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+@app.get("/get_all_user_groups/{id_req}")
+def get_all_user_groups(id_req) -> Sequence[Group]:
+    if not id_req:
+        raise HTTPException(status_code=400, detail="Bad request")
+    try:
+        with get_session() as session:
+            user:User|None = session.exec(select(User).where(User.id == id_req)).first()
+            if not user:
+                raise HTTPException(status_code=400, detail="Bad request")
+            groups:Sequence[Group] = session.exec(select(Group).where(col(Group.id).in_(user.groups))).all()
+            session.commit()
+            return groups
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
 #todo: create for events and group
 
-#todo: delete and update
+@app.post("/create_event/{group_id}")
+def create_event(group_id, event_data:EventCreate) -> Event:
+    try:
+        with get_session() as session:
+            group:Group|None = session.exec(select(Group).where(Group.id == group_id)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            event = create_event(event_data)
+            delete(Event).where(col(Event.expires_at) < datetime.now(timezone.utc))
+            session.add(event)
+            session.commit()
+            return event
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+
+#todo: update
+#update event: update time, or name, or desc, or location
+#this should probably send a notif to people that RSVP'd
 
 #todo: expiry (how?)
 #todo: delete expired events on create event?

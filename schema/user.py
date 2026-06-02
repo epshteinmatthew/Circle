@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from pydantic.v1 import BaseModel
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -61,3 +62,5 @@ class User(UserCreate, table=True):
 def create_user(data: UserCreate) -> User:
     """Build a new User from caller-provided fields only."""
     return User.model_validate(data.model_dump())
+
+

@@ -5,6 +5,7 @@ from datetime import date, time, datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from flask import jsonify
+from sqlalchemy import Select
 from sqlmodel import select, col, delete
 
 from schema import (
@@ -19,6 +20,7 @@ from schema import (
     create_user,
 )
 from schema.database import get_session, init_db
+from schema.group import GroupData
 
 
 #todo: validation and refresh tokens
@@ -139,7 +141,7 @@ def get_all_user_groups(id_req) -> Sequence[Group]:
 #todo: create for events and group
 
 @app.post("/create_event/{group_id}")
-def create_event(group_id, event_data:EventCreate) -> Event:
+def create_event_route(group_id, event_data:EventCreate) -> Event:
     try:
         with get_session() as session:
             group:Group|None = session.exec(select(Group).where(Group.id == group_id)).first()
@@ -153,10 +155,25 @@ def create_event(group_id, event_data:EventCreate) -> Event:
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-
-#todo: update
+#todo: update, get event by ID
 #update event: update time, or name, or desc, or location
 #this should probably send a notif to people that RSVP'd
+
+@app.post("/create_group")
+def create_group_route(group_data: GroupData) -> Group:
+    try:
+        with get_session() as session:
+            creator:User|None = session.exec(Select(User).where(col(User.id) == group_data.created_by)).first()
+            if creator is None:
+                raise HTTPException(status_code=404, detail="no such user")
+            invitees:Sequence[User] = session.exec(Select(User).where(col(User.id).in_(group_data.users))).all()
+            group = create_group(GroupCreate(name=group_data.name, created_by=group_data.created_by), creator, users=invitees)
+            session.add(group)
+            session.commit()
+            return group
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
 
 #todo: expiry (how?)
 #todo: delete expired events on create event?

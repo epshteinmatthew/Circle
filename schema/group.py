@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from mypyc.ir.ops import Sequence
 from sqlmodel import Field, Relationship, SQLModel
 
 from schema.links import UserGroupLink
@@ -7,26 +8,36 @@ from schema.links import UserGroupLink
 if TYPE_CHECKING:
     from schema.user import User
 
-
-class GroupBase(SQLModel):
-    name: str
-
-
-class GroupCreate(GroupBase):
+class GroupCreate(SQLModel):
     """Fields callers may provide when creating a group."""
 
     model_config = {"extra": "forbid"}
 
-    users: list["User"] = Field(default_factory=list)
+    name: str
+
+    created_by:int
 
 
-class Group(GroupBase, table=True):
+class Group(GroupCreate, table=True):
     id: int | None = Field(default=None, primary_key=True)
+
+    created_by:int = Field(foreign_key="user.id")
 
     users: list["User"] = Relationship(
         back_populates="groups",
         link_model=UserGroupLink,
     )
+
+    user_requests: list["User"] = Relationship(
+        back_populates="incoming_groups",
+        link_model=UserGroupLink
+    )
+
+    def add_request(self, user: "User") -> bool:
+        if user in self.users or user in self.user_requests:
+            return False
+        self.user_requests.append(user)
+        return True
 
     def add_user(self, user: "User") -> bool:
         if user in self.users:
@@ -41,11 +52,12 @@ class Group(GroupBase, table=True):
         return True
 
 
-def create_group(data: GroupCreate) -> Group:
+def create_group(data: GroupCreate, created_by: "User", users: Sequence["User"]) -> Group:
     """Build a new Group from caller-provided fields only."""
     group = Group.model_validate({"name": data.name})
-    for user in data.users:
-        group.add_user(user)
+    group.add_user(created_by)
+    for user in users:
+        group.add_request(user)
     return group
 
 
@@ -57,3 +69,8 @@ def _rebuild_models() -> None:
 
 
 _rebuild_models()
+
+class GroupData(SQLModel):
+    name: str
+    created_by: int
+    users: list[int]

@@ -33,6 +33,11 @@ class User(UserCreate, table=True):
         link_model=UserGroupLink,
     )
 
+    incoming_groups: list["Group"] = Relationship(
+        back_populates="user_requests",
+        link_model=UserGroupLink
+    )
+
     def add_event_rsvp(self, event: "Event") -> bool:
         if event in self.rsvp_events:
             return False

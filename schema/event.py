@@ -50,13 +50,6 @@ class Event(EventCreate, table=True):
     group_id: int = Field(foreign_key="group.id")
     time_range: tuple[time, time] = Field(sa_column=Column(TimeRangeType))
     created_at: datetime = Field(default_factory=datetime.now)
-    expires_at: datetime = Field(default_factory=datetime.now)
-
-    @model_validator(mode="after")
-    def calculate_expires_at(self) -> "Event":
-        if self.expires_at is None and hasattr(self, 'day') and self.time_range:
-            self.expires_at = datetime.combine(self.day, self.time_range[1])
-        return self
 
     group: "Group" = Relationship()
     rsvp_users: list["User"] = Relationship(
@@ -86,6 +79,7 @@ class Event(EventCreate, table=True):
         return True
 
 
+
 def _parse_time(value: Any) -> time:
     if isinstance(value, time):
         return value
@@ -97,3 +91,11 @@ def _parse_time(value: Any) -> time:
 def create_event(data: EventCreate) -> Event:
     """Build a new Event from caller-provided fields only."""
     return Event.model_validate(data.model_dump())
+
+
+class EventData(SQLModel):
+    id: int
+    name: str
+    description: str
+    day: date
+    time_range: tuple[time, time]

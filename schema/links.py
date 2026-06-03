@@ -14,3 +14,11 @@ class UserGroupLink(SQLModel, table=True):
     user_id: int | None = Field(default=None, foreign_key="user.id", primary_key=True)
     group_id: int | None = Field(default=None, foreign_key="group.id", primary_key=True)
 
+
+
+class UserIncomingGroupLink(SQLModel, table=True):
+    """Association table: user in group."""
+
+    user_id: int | None = Field(default=None, foreign_key="user.id", primary_key=True)
+    group_id: int | None = Field(default=None, foreign_key="group.id", primary_key=True)
+

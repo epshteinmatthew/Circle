@@ -20,6 +20,7 @@ from schema import (
     create_user,
 )
 from schema.database import get_session, init_db
+from schema.event import EventData
 from schema.group import GroupData
 
 
@@ -49,9 +50,29 @@ def delete_event(id:int) -> bool:
 #deep event: get the event and all of the users for RSVP and the user for create
 #deep group: idk yet
 
+#todo: No such x issue
 app = FastAPI()
 
 init_db()
+'''
+# 1. Define the input data using the EventCreate schema
+event_in = EventCreate(
+    name="Team Sync & Board Game Night",
+    description="Monthly alignment meeting followed by Catan.",
+    day=date(2026, 6, 15),
+    time_range=(time(17, 0), time(20, 30)),  # 5:00 PM to 8:30 PM
+    created_by=42,                            # ID of the creating User
+    group_id=7                                # ID of the target Group
+)
+
+# 2. Instantiate the Event model using your function
+new_event = create_event(event_in)
+
+with get_session() as session:
+    session.add(new_event)
+    session.commit()
+'''
+
 
 @app.get("/")
 def index() -> str:
@@ -101,7 +122,7 @@ def get_all_user_events(id_req) -> Sequence[Event]:
             user:User|None = session.exec(select(User).where(User.id == id_req)).first()
             if not user:
                 raise HTTPException(status_code = 400, detail = "Bad request")
-            events:Sequence[Event] = session.exec(select(Event).where(Event.created_by == user.id, Event.expires_at < datetime.now(timezone.utc))).all()
+            events:Sequence[Event] = session.exec(select(Event).where(Event.created_by == user.id, datetime.combine(Event.day, Event.time_range[1]) < datetime.now(timezone.utc))).all()
             session.commit()
             return events
     except:
@@ -117,7 +138,7 @@ def get_all_user_rsvp_events(id_req) -> Sequence[Event]:
             user:User|None = session.exec(select(User).where(User.id == id_req)).first()
             if not user:
                 raise HTTPException(status_code=400, detail="Bad request")
-            events:Sequence[Event] = session.exec(select(Event).where(col(Event.id).in_(user.rsvp_events), Event.expires_at < datetime.now(timezone.utc))).all()
+            events:Sequence[Event] = session.exec(select(Event).where(col(Event.id).in_(user.rsvp_events), datetime.combine(Event.day, Event.time_range[1]) < datetime.now(timezone.utc))).all()
             session.commit()
             return events
     except:
@@ -138,7 +159,19 @@ def get_all_user_groups(id_req) -> Sequence[Group]:
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-#todo: create for events and group
+@app.get("/get_event/{id_req}")
+def get_event_by_id(id_req):
+    if not id_req:
+        raise HTTPException(status_code=400, detail="bad request")
+    try:
+        with get_session() as session:
+            event: Event | None = session.exec(select(Event).where(Event.id == id_req)).first()
+            if event is None:
+                raise HTTPException(status_code=404, detail="no such event")
+            return event
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
 @app.post("/create_event/{group_id}")
 def create_event_route(group_id, event_data:EventCreate) -> Event:
@@ -148,16 +181,31 @@ def create_event_route(group_id, event_data:EventCreate) -> Event:
             if group is None:
                 raise HTTPException(status_code=404, detail="no such group")
             event = create_event(event_data)
-            delete(Event).where(col(Event.expires_at) < datetime.now(timezone.utc))
+            delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
             session.add(event)
             session.commit()
             return event
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-#todo: update, get event by ID
-#update event: update time, or name, or desc, or location
-#this should probably send a notif to people that RSVP'd
+
+@app.post("/update_event")
+def update_event(event_data: EventData) -> Event:
+    #todo: what to do with RSVP?
+    try:
+        with get_session() as session:
+            event: Event | None = session.exec(select(Event).where(Event.id == event_data.id)).first()
+            if event is None:
+                raise HTTPException(status_code=404, detail="no such event")
+            event.name = event_data.name
+            event.day = event_data.day
+            event.time_range = event_data.time_range
+            session.add(event)
+            delete(Event).where(col(Event.expires_at) < datetime.now(timezone.utc))
+            return event
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
 
 @app.post("/create_group")
 def create_group_route(group_data: GroupData) -> Group:
@@ -174,10 +222,9 @@ def create_group_route(group_data: GroupData) -> Group:
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
+#todo: add to group, leave group
 
 #todo: expiry (how?)
-#todo: delete expired events on create event?
-#or maybe something else? maybe deep user?
 
 
 if __name__ == "__main__":

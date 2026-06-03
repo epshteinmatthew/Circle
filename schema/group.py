@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from mypyc.ir.ops import Sequence
 from sqlmodel import Field, Relationship, SQLModel
 
-from schema.links import UserGroupLink
+from schema.links import UserGroupLink, UserIncomingGroupLink
 
 if TYPE_CHECKING:
     from schema.user import User
@@ -30,7 +30,7 @@ class Group(GroupCreate, table=True):
 
     user_requests: list["User"] = Relationship(
         back_populates="incoming_groups",
-        link_model=UserGroupLink
+        link_model=UserIncomingGroupLink
     )
 
     def add_request(self, user: "User") -> bool:

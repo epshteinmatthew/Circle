@@ -4,7 +4,7 @@ from pydantic.v1 import BaseModel
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship, SQLModel
 
-from schema.links import UserEventRSVPLink, UserGroupLink
+from schema.links import UserEventRSVPLink, UserGroupLink, UserIncomingGroupLink
 
 if TYPE_CHECKING:
     from schema.event import Event
@@ -35,7 +35,7 @@ class User(UserCreate, table=True):
 
     incoming_groups: list["Group"] = Relationship(
         back_populates="user_requests",
-        link_model=UserGroupLink
+        link_model=UserIncomingGroupLink
     )
 
     def add_event_rsvp(self, event: "Event") -> bool:

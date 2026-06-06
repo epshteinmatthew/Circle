@@ -1,0 +1,15 @@
+Todos (server side):
+THE KEYS:
+    Keep it Simple, Stupid (KISS)
+    Launch First, Improve Later
+
+Features:
+    An actual availability schema
+    More stuff for events (better reactions, images)
+    People limit in groups
+    Cool shit (global events, suggestions, etc)
+
+Deployment/Security:
+    Google auth
+    figure out where to store DB
+    figure out where to host server (maybe allen school servers?)

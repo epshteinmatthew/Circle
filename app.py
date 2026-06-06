@@ -22,6 +22,7 @@ from schema import (
 from schema.database import get_session, init_db
 from schema.event import EventData
 from schema.group import GroupData
+from schema.links import UserIncomingGroupLink
 
 
 #todo: validation and refresh tokens
@@ -50,7 +51,6 @@ def delete_event(id:int) -> bool:
 #deep event: get the event and all of the users for RSVP and the user for create
 #deep group: idk yet
 
-#todo: No such x issue
 app = FastAPI()
 
 init_db()
@@ -95,6 +95,8 @@ def create_user_route(user_data: UserCreate) -> User:
             session.add(new_user)
             session.commit()
             return new_user
+    except HTTPException as e:
+        raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
@@ -109,6 +111,8 @@ def get_user_with_id(id_req) -> User:
             if user is not None:
                 return user
             raise HTTPException(status_code=404, detail="User not found")
+    except HTTPException as e:
+        raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
@@ -125,6 +129,8 @@ def get_all_user_events(id_req) -> Sequence[Event]:
             events:Sequence[Event] = session.exec(select(Event).where(Event.created_by == user.id, datetime.combine(Event.day, Event.time_range[1]) < datetime.now(timezone.utc))).all()
             session.commit()
             return events
+    except HTTPException as e:
+        raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
@@ -141,6 +147,8 @@ def get_all_user_rsvp_events(id_req) -> Sequence[Event]:
             events:Sequence[Event] = session.exec(select(Event).where(col(Event.id).in_(user.rsvp_events), datetime.combine(Event.day, Event.time_range[1]) < datetime.now(timezone.utc))).all()
             session.commit()
             return events
+    except HTTPException as e:
+        raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
@@ -156,6 +164,8 @@ def get_all_user_groups(id_req) -> Sequence[Group]:
             groups:Sequence[Group] = session.exec(select(Group).where(col(Group.id).in_(user.groups))).all()
             session.commit()
             return groups
+    except HTTPException as e:
+        raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
@@ -169,8 +179,10 @@ def get_event_by_id(id_req):
             if event is None:
                 raise HTTPException(status_code=404, detail="no such event")
             return event
-    except Exception as e:
-        print(e)
+
+    except HTTPException as e:
+       raise e
+    except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
 @app.post("/create_event/{group_id}")
@@ -185,6 +197,8 @@ def create_event_route(group_id, event_data:EventCreate) -> Event:
             session.add(event)
             session.commit()
             return event
+    except HTTPException as e:
+        raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
@@ -201,31 +215,76 @@ def update_event(event_data: EventData) -> Event:
             event.day = event_data.day
             event.time_range = event_data.time_range
             session.add(event)
-            delete(Event).where(col(Event.expires_at) < datetime.now(timezone.utc))
+            delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
             return event
+
+    except HTTPException as e:
+        raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
+
+
+#todo: delete event
 
 
 @app.post("/create_group")
 def create_group_route(group_data: GroupData) -> Group:
     try:
         with get_session() as session:
-            creator:User|None = session.exec(Select(User).where(col(User.id) == group_data.created_by)).first()
+            creator:User|None = session.exec(select(User).where(col(User.id) == group_data.created_by)).first()
             if creator is None:
                 raise HTTPException(status_code=404, detail="no such user")
-            invitees:Sequence[User] = session.exec(Select(User).where(col(User.id).in_(group_data.users))).all()
+            invitees:Sequence[User] = session.exec(select(User).where(col(User.id).in_(group_data.users))).all()
             group = create_group(GroupCreate(name=group_data.name, created_by=group_data.created_by), creator, users=invitees)
             session.add(group)
             session.commit()
             return group
+    except HTTPException as e:
+        raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-#todo: add to group, leave group
+@app.post("/add_to_group/{id_req}")
+def add_to_group(link: UserIncomingGroupLink, id_req: int) -> Group:
+    try:
+        with get_session() as session:
+            group:Group|None = session.exec(select(Group).where(Group.id == link.group_id)).first()
+            added_user: User|None = session.exec(select(User).where(User.id == link.user_id)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            if added_user is None:
+                raise HTTPException(status_code=404, detail="no such user")
+            if id_req not in group.users or link.user_id in group.users or link.user_id in group.user_requests:
+                raise HTTPException(status_code=400, detail="wrong users")
+            group.user_requests.append(added_user)
+            session.commit()
+            return group
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+@app.post("/leave_group/{id_req}/{group_id}")
+def leave_group(id_req: int, group_id: int):
+    #todo: require auth verify for this and all other similar stuff
+    try:
+        with get_session() as session:
+            group:Group|None = session.exec(select(Group).where(Group.id == group_id)).first()
+            user: User|None = session.exec(select(User).where(User.id == id_req)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            if user is None:
+                raise HTTPException(status_code=404, detail="no such user")
+            if id_req not in group.users:
+                raise HTTPException(status_code=400, detail="user not in group")
+            group.users.remove(user)
+            session.commit()
+            return group
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
 #todo: expiry (how?)
 
 
-if __name__ == "__main__":
-    app.run(debug=True)

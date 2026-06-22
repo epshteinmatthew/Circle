@@ -10,6 +10,6 @@ Features:
     Cool shit (global events, suggestions, etc)
 
 Deployment/Security:
-    Google auth
+    finish the google auth
     figure out where to store DB
     figure out where to host server (maybe allen school servers?)

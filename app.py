@@ -6,7 +6,7 @@ from datetime import date, time, datetime, timezone
 from fastapi import FastAPI, HTTPException
 from flask import jsonify
 from sqlalchemy import Select
-from sqlmodel import select, col, delete
+from sqlmodel import select, col, delete, or_
 
 from schema import (
     Event,
@@ -47,10 +47,7 @@ def delete_event(id:int) -> bool:
         return False
 
 #todo: deep user, deep event, deep group
-#deep user: get the user and all of their events and groups
 #deep event: get the event and all of the users for RSVP and the user for create
-#deep group: idk yet
-
 app = FastAPI()
 
 init_db()
@@ -170,7 +167,7 @@ def get_all_user_groups(id_req) -> Sequence[Group]:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
 @app.get("/get_event/{id_req}")
-def get_event_by_id(id_req):
+def get_event_by_id(id_req) -> Event:
     if not id_req:
         raise HTTPException(status_code=400, detail="bad request")
     try:
@@ -182,6 +179,23 @@ def get_event_by_id(id_req):
 
     except HTTPException as e:
        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+@app.get("/get_event_users/{id_req}")
+def get_event_users(id_req) -> Sequence[User]:
+    if not id_req:
+        raise HTTPException(status_code=400, detail="Bad request")
+    try:
+        with get_session() as session:
+            event:Event|None = session.exec(select(Event).where(User.id == id_req)).first()
+            if not event:
+                raise HTTPException(status_code=400, detail="Bad request")
+            users:Sequence[User] = session.exec(select(User).where(or_(col(User.id).in_(event.rsvp_users), col(User.id) == event.created_by), datetime.combine(Event.day, Event.time_range[1]) < datetime.now(timezone.utc))).all()
+            session.commit()
+            return users
+    except HTTPException as e:
+        raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
@@ -224,7 +238,23 @@ def update_event(event_data: EventData) -> Event:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
 
-#todo: delete event
+@app.post("/delete_event/{id_req}")
+def delete_event(id_req: int) -> bool:
+    try:
+        with get_session() as session:
+            event: Event | None = session.exec(select(Event).where(Event.id == id_req)).first()
+            if event is None:
+                raise HTTPException(status_code=404, detail="no such event")
+            #todo: auth check here
+            session.delete(event)
+            delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
+            return event
+
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
 
 
 @app.post("/create_group")

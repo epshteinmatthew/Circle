@@ -1,3 +1,4 @@
+import time
 import uuid
 import json
 import setup
@@ -20,7 +21,7 @@ def refresh_jwt_key(refresh: str) -> str:
     with open("refresh.json", "r") as fp:
         f = json.load(fp)
         if(refresh in f):
-            encoded_jwt = jwt.encode({'org':"uw.edu", 'cid': GOOGLE_CLIENT_ID, 'exp': time.time() + 86400},
+            encoded_jwt = jwt.encode({'cid': setup.GOOGLE_CLIENT_ID, 'exp': time.time() + 86400},
                                      setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
             return encoded_jwt
         return "not allowed"
@@ -29,9 +30,10 @@ def refresh_jwt_key(refresh: str) -> str:
 def validate(encoded):
     try:
         decoded = jwt.decode(encoded, setup.GOOGLE_CLIENT_SECRET, algorithms=["HS256"])
-        if(decoded['org'] == "uw.edu" and decoded['exp'] >= time.time() and decoded['cid'] == GOOGLE_CLIENT_ID):
+        if decoded['exp'] >= time.time() and decoded['cid'] == setup.GOOGLE_CLIENT_ID:
             return True
         else:
             return False
     except:
         return False
+

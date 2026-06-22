@@ -2,12 +2,19 @@
 import json
 from collections.abc import Sequence
 from datetime import date, time, datetime, timezone
+import time as timeint
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+import jwt
+from fastapi import FastAPI, HTTPException, Header
 from flask import jsonify
+from google.auth.transport import requests
+from google.oauth2 import id_token
 from sqlalchemy import Select
 from sqlmodel import select, col, delete, or_
 
+import setup
+from auth import refresh_jwt_key, generate_refresh_token
 from schema import (
     Event,
     EventCreate,
@@ -23,14 +30,13 @@ from schema.database import get_session, init_db
 from schema.event import EventData
 from schema.group import GroupData
 from schema.links import UserIncomingGroupLink
+from setup import GOOGLE_CLIENT_ID
 
 
-#todo: validation and refresh tokens
-
-def get_user_with_email_and_name(name:str, email:str) -> User | None:
+def get_user_by_email(email:str) -> User | None:
     try:
         with get_session() as session:
-            user = session.exec(select(User).where(User.name == name and User.email == email)).first()
+            user = session.exec(select(User).where(User.email == email)).first()
             session.commit()
             return user
     except:
@@ -74,6 +80,55 @@ with get_session() as session:
 @app.get("/")
 def index() -> str:
     return "Circle — try /demo for a schema example (data in circle.db)"
+
+@app.post('/login')
+def login(token:str):
+    CONF_URL = 'https://accounts.google.com/.well-known/openid-configuration'
+    try:
+        # Specify the WEB_CLIENT_ID of the app that accesses the backend:
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+        if idinfo['aud'] == GOOGLE_CLIENT_ID and 'accounts.google.com' in idinfo['iss'] and idinfo['exp'] >= timeint.time():
+            #plus one day
+            user: User | None = get_user_by_email(idinfo['email'])
+            if user is None:
+                return
+                # todo: how to integrate this with sign up flow?
+                # probably just a redirect and keep the google token
+                # remember: we need to also have availability form
+            encoded_jwt = jwt.encode({'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': user.id}, setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
+            refresh_token = generate_refresh_token()
+            return jsonify({"jwt": encoded_jwt, "refresh" : refresh_token}), 200
+        else:
+            return "not allowed", 403
+    except:
+        return "not allowed", 403
+
+@app.post("/refresh")
+async def refresh(authorization: Annotated[str | None, Header()] = None):
+    if authorization is None:
+        return "not allowed", 403
+    res = refresh_jwt_key(authorization)
+    if res == "now allowed":
+        return res, 403
+    return res, 200
+
+
+@app.post("/logout")
+async def logout(authorization: Annotated[str | None, Header()] = None):
+    try:
+        if authorization is None:
+            return "not allowed", 403
+        refresh = authorization
+        f = []
+        with open("refresh.json", "r") as fp:
+            f = json.load(fp)
+        if refresh in f:
+            f.remove(refresh)
+        with open("refresh.json", "w") as fp:
+            json.dump(fp = fp, obj= f)
+        return "logged out"
+    except:
+        return "server error", 500
 
 #todo: google path
 #this will do login and then split into either a sign up flow or give you your user
@@ -315,6 +370,5 @@ def leave_group(id_req: int, group_id: int):
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-#todo: expiry (how?)
 
 

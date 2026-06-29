@@ -90,34 +90,40 @@ def login(token:str):
         if idinfo['aud'] == GOOGLE_CLIENT_ID and 'accounts.google.com' in idinfo['iss'] and idinfo['exp'] >= timeint.time():
             #plus one day
             user: User | None = get_user_by_email(idinfo['email'])
-            if user is None:
-                return
+            if user is None or user.id is None:
+                raise HTTPException(status_code=401, detail="user not found")
                 # todo: how to integrate this with sign up flow?
                 # probably just a redirect and keep the google token
                 # remember: we need to also have availability form
             encoded_jwt = jwt.encode({'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': user.id}, setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
-            refresh_token = generate_refresh_token()
+            refresh_token = generate_refresh_token(user.id)
             return jsonify({"jwt": encoded_jwt, "refresh" : refresh_token}), 200
         else:
-            return "not allowed", 403
+            raise HTTPException(status_code=403, detail="Not authorized")
+    except HTTPException as e:
+            raise e
     except:
-        return "not allowed", 403
-
+        raise HTTPException(status_code=500, detail="Something went wrong")
 @app.post("/refresh")
 async def refresh(authorization: Annotated[str | None, Header()] = None):
-    if authorization is None:
-        return "not allowed", 403
-    res = refresh_jwt_key(authorization)
-    if res == "now allowed":
-        return res, 403
-    return res, 200
+    try:
+        if authorization is None:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        res = refresh_jwt_key(authorization)
+        if res == "not allowed":
+            raise HTTPException(status_code=403, detail="Not authorized")
+        return res, 200
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
 
 @app.post("/logout")
 async def logout(authorization: Annotated[str | None, Header()] = None):
     try:
         if authorization is None:
-            return "not allowed", 403
+            raise HTTPException(status_code=403, detail="Not authorized")
         refresh = authorization
         f = []
         with open("refresh.json", "r") as fp:
@@ -127,26 +133,38 @@ async def logout(authorization: Annotated[str | None, Header()] = None):
         with open("refresh.json", "w") as fp:
             json.dump(fp = fp, obj= f)
         return "logged out"
+    except HTTPException as e:
+        raise e
     except:
-        return "server error", 500
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
 #todo: google path
 #this will do login and then split into either a sign up flow or give you your user
 #to get your user you need name and email OR id
 #these will always be the ones tied to the google account for simplicity's sake
 
-#todo: augment this to some kind of sign-up flow
-@app.post("/create_user")
-def create_user_route(user_data: UserCreate) -> User:
+@app.post("/sign_up")
+def sign_up(user_data: UserCreate, token:str):
     try:
-        with get_session() as session:
-            new_user:User = create_user(user_data)
-            same_name_and_email:User|None = session.exec(select(User).where(User.name == new_user.name, User.email == new_user.email)).first()
-            if same_name_and_email:
-                raise HTTPException(status_code = 409, detail = "Duplicate name and email")
-            session.add(new_user)
-            session.commit()
-            return new_user
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+        if idinfo['aud'] == GOOGLE_CLIENT_ID and 'accounts.google.com' in idinfo['iss'] and idinfo[
+            'exp'] >= timeint.time():
+             # plus one day
+            with get_session() as session:
+                new_user:User = create_user(user_data)
+                same_name_and_email:User|None = session.exec(select(User).where(User.name == new_user.name, User.email == new_user.email)).first()
+                if same_name_and_email:
+                    raise HTTPException(status_code = 409, detail = "Duplicate name and email")
+                session.add(new_user)
+                session.commit()
+                if new_user.id is None:
+                    raise HTTPException(status_code=500)
+                encoded_jwt = jwt.encode(
+                    {'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': new_user.id},
+                    setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
+                refresh_token = generate_refresh_token(new_user.id)
+                return jsonify({"jwt": encoded_jwt, "refresh": refresh_token, "user_id": new_user.id}), 200
+        raise HTTPException(status_code=401, detail="Not authorized")
     except HTTPException as e:
         raise e
     except:

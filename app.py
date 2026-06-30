@@ -174,6 +174,8 @@ def sign_up(user_data: UserCreate, token:str):
 
 @app.get("/get_user_with_id/{id_req}")
 async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()] = None) -> User:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized") 
     if not id_req:
         raise HTTPException(status_code = 400, detail = "Bad request")
     try:

@@ -14,7 +14,7 @@ from sqlalchemy import Select
 from sqlmodel import select, col, delete, or_
 
 import setup
-from auth import refresh_jwt_key, generate_refresh_token
+from auth import refresh_jwt_key, generate_refresh_token, validate, validate_uid
 from schema import (
     Event,
     EventCreate,
@@ -80,6 +80,8 @@ with get_session() as session:
 @app.get("/")
 def index() -> str:
     return "Circle — try /demo for a schema example (data in circle.db)"
+
+
 
 @app.post('/login')
 def login(token:str):
@@ -171,7 +173,7 @@ def sign_up(user_data: UserCreate, token:str):
         raise HTTPException(status_code=500, detail="Something went wrong")
 
 @app.get("/get_user_with_id/{id_req}")
-def get_user_with_id(id_req) -> User:
+async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()] = None) -> User:
     if not id_req:
         raise HTTPException(status_code = 400, detail = "Bad request")
     try:
@@ -188,7 +190,9 @@ def get_user_with_id(id_req) -> User:
 
 
 @app.get("/get_all_user_events/{id_req}")
-def get_all_user_events(id_req) -> Sequence[Event]:
+async def get_all_user_events(id_req, authorization: Annotated[str | None, Header()] = None) -> Sequence[Event]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
     if not id_req:
         raise HTTPException(status_code = 400, detail = "Bad request")
     try:
@@ -206,7 +210,9 @@ def get_all_user_events(id_req) -> Sequence[Event]:
 
 
 @app.get("/get_all_user_rsvp_events/{id_req}")
-def get_all_user_rsvp_events(id_req) -> Sequence[Event]:
+def get_all_user_rsvp_events(id_req, authorization: Annotated[str | None, Header()] = None) -> Sequence[Event]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
     if not id_req:
         raise HTTPException(status_code = 400, detail = "Bad request")
     try:

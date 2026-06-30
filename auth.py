@@ -27,7 +27,18 @@ def refresh_jwt_key(refresh: str) -> str:
         return "not allowed"
 
 
-def validate(encoded, uid:int):
+def validate(encoded):
+    try:
+        decoded = jwt.decode(encoded, setup.GOOGLE_CLIENT_SECRET, algorithms=["HS256"])
+        if decoded['exp'] >= time.time() and decoded['cid'] == setup.GOOGLE_CLIENT_ID:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
+def validate_uid(encoded, uid:int):
     try:
         decoded = jwt.decode(encoded, setup.GOOGLE_CLIENT_SECRET, algorithms=["HS256"])
         if decoded['exp'] >= time.time() and decoded['cid'] == setup.GOOGLE_CLIENT_ID and decoded['uid'] == uid:

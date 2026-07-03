@@ -8,8 +8,8 @@ Features:
     More stuff for events (better reactions, images)
     People limit in groups
     Cool shit (global events, suggestions, etc)
+    cache
 
 Deployment/Security:
-    finish the google auth
     figure out where to store DB
     figure out where to host server (maybe allen school servers?)

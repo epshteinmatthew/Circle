@@ -1,20 +1,19 @@
 """Circle Flask application and schema usage example."""
 import json
 from collections.abc import Sequence
-from datetime import date, time, datetime, timezone
+from datetime import datetime, timezone
 import time as timeint
 from typing import Annotated
 
 import jwt
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Depends
 from flask import jsonify
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from sqlalchemy import Select
 from sqlmodel import select, col, delete, or_
 
 import setup
-from auth import refresh_jwt_key, generate_refresh_token, validate, validate_uid
+from auth import refresh_jwt_key, generate_refresh_token, validate_uid
 from schema import (
     Event,
     EventCreate,
@@ -31,6 +30,8 @@ from schema.event import EventData
 from schema.group import GroupData
 from schema.links import UserIncomingGroupLink
 from setup import GOOGLE_CLIENT_ID
+from pyrate_limiter import Duration, Limiter, Rate
+from fastapi_limiter.depends import RateLimiter
 
 
 def get_user_by_email(email:str) -> User | None:
@@ -77,13 +78,13 @@ with get_session() as session:
 '''
 
 
-@app.get("/")
+@app.get("/", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def index() -> str:
     return "Circle — try /demo for a schema example (data in circle.db)"
 
 
 
-@app.post('/login')
+@app.post('/login', dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def login(token:str):
     CONF_URL = 'https://accounts.google.com/.well-known/openid-configuration'
     try:
@@ -106,7 +107,7 @@ def login(token:str):
             raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
-@app.post("/refresh")
+@app.post("/refresh", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def refresh(authorization: Annotated[str | None, Header()] = None):
     try:
         if authorization is None:
@@ -121,7 +122,7 @@ async def refresh(authorization: Annotated[str | None, Header()] = None):
         raise HTTPException(status_code=500, detail="Something went wrong")
 
 
-@app.post("/logout")
+@app.post("/logout", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def logout(authorization: Annotated[str | None, Header()] = None):
     try:
         if authorization is None:
@@ -145,7 +146,7 @@ async def logout(authorization: Annotated[str | None, Header()] = None):
 #to get your user you need name and email OR id
 #these will always be the ones tied to the google account for simplicity's sake
 
-@app.post("/sign_up")
+@app.post("/sign_up", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def sign_up(user_data: UserCreate, token:str):
     try:
         idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
@@ -280,7 +281,7 @@ def get_event_users(id_req) -> Sequence[User]:
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-@app.post("/create_event/{group_id}")
+@app.post("/create_event/{group_id}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def create_event_route(group_id, event_data:EventCreate) -> Event:
     try:
         with get_session() as session:
@@ -298,7 +299,7 @@ def create_event_route(group_id, event_data:EventCreate) -> Event:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
 
-@app.post("/update_event")
+@app.post("/update_event", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def update_event(event_data: EventData) -> Event:
     #todo: what to do with RSVP?
     try:
@@ -319,7 +320,7 @@ def update_event(event_data: EventData) -> Event:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
 
-@app.post("/delete_event/{id_req}")
+@app.post("/delete_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def delete_event(id_req: int) -> bool:
     try:
         with get_session() as session:
@@ -338,7 +339,7 @@ def delete_event(id_req: int) -> bool:
 
 
 
-@app.post("/create_group")
+@app.post("/create_group", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def create_group_route(group_data: GroupData) -> Group:
     try:
         with get_session() as session:
@@ -355,7 +356,7 @@ def create_group_route(group_data: GroupData) -> Group:
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-@app.post("/add_to_group/{id_req}")
+@app.post("/add_to_group/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def add_to_group(link: UserIncomingGroupLink, id_req: int) -> Group:
     try:
         with get_session() as session:
@@ -375,7 +376,7 @@ def add_to_group(link: UserIncomingGroupLink, id_req: int) -> Group:
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-@app.post("/leave_group/{id_req}/{group_id}")
+@app.post("/leave_group/{id_req}/{group_id}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def leave_group(id_req: int, group_id: int):
     #todo: require auth verify for this and all other similar stuff
     try:

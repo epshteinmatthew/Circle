@@ -99,3 +99,4 @@ class EventData(SQLModel):
     description: str
     day: date
     time_range: tuple[time, time]
+    created_by: int

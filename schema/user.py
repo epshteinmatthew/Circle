@@ -1,3 +1,4 @@
+from datetime import time
 from typing import TYPE_CHECKING
 
 from pydantic.v1 import BaseModel
@@ -5,6 +6,7 @@ from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship, SQLModel
 
 from schema.links import UserEventRSVPLink, UserGroupLink, UserIncomingGroupLink
+from schema.time_range import AvailabilitySlot
 
 if TYPE_CHECKING:
     from schema.event import Event
@@ -18,7 +20,7 @@ class UserCreate(SQLModel):
 
     name: str
     email: str
-    availability: str
+
 
 
 class User(UserCreate, table=True):
@@ -36,6 +38,11 @@ class User(UserCreate, table=True):
     incoming_groups: list["Group"] = Relationship(
         back_populates="user_requests",
         link_model=UserIncomingGroupLink
+    )
+
+    availabilities: list["AvailabilitySlot"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
     def add_event_rsvp(self, event: "Event") -> bool:
@@ -64,8 +71,11 @@ class User(UserCreate, table=True):
 
 
 
-def create_user(data: UserCreate) -> User:
+def create_user(data: UserCreate, availabilities: list[AvailabilitySlot]) -> User:
     """Build a new User from caller-provided fields only."""
-    return User.model_validate(data.model_dump())
+    user = User.model_validate(data.model_dump())
+
+
+    return user
 
 

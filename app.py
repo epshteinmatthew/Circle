@@ -29,6 +29,7 @@ from schema.database import get_session, init_db
 from schema.event import EventData
 from schema.group import GroupData
 from schema.links import UserIncomingGroupLink
+from schema.time_range import AvailabilitySlot
 from setup import GOOGLE_CLIENT_ID
 from pyrate_limiter import Duration, Limiter, Rate
 from fastapi_limiter.depends import RateLimiter
@@ -144,14 +145,15 @@ async def logout(authorization: Annotated[str | None, Header()] = None):
 #these will always be the ones tied to the google account for simplicity's sake
 
 @app.post("/sign_up", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-def sign_up(user_data: UserCreate, token:str):
+def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token:str):
     try:
+        #todo fix? or do i need to?
         idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
         if idinfo['aud'] == GOOGLE_CLIENT_ID and 'accounts.google.com' in idinfo['iss'] and idinfo[
             'exp'] >= timeint.time():
              # plus one day
             with get_session() as session:
-                new_user:User = create_user(user_data)
+                new_user:User = create_user(user_data, availabilities)
                 same_name_and_email:User|None = session.exec(select(User).where(User.name == new_user.name, User.email == new_user.email)).first()
                 if same_name_and_email:
                     raise HTTPException(status_code = 409, detail = "Duplicate name and email")
@@ -328,18 +330,17 @@ async def update_event(event_data: EventData, authorization: Annotated[str | Non
 
 
 @app.post("/delete_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def delete_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> bool:
+async def delete_event_route(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> bool:
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
         with get_session() as session:
             event: Event | None = session.exec(select(Event).where(Event.id == id_req, Event.created_by == uid)).first()
-            if event is None:
+            if event is None or event.created_by != uid:
                 raise HTTPException(status_code=404, detail="no such event")
-            #todo: auth check here
             session.delete(event)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
-            return event
+            return True
 
     except HTTPException as e:
         raise e

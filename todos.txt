@@ -11,5 +11,6 @@ Features:
     cache
 
 Deployment/Security:
+    go thru and give types to everything
     figure out where to store DB
     figure out where to host server (maybe allen school servers?)

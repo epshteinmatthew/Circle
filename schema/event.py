@@ -3,34 +3,14 @@ from typing import Any, TYPE_CHECKING
 
 from pydantic import field_validator, computed_field, model_validator
 from sqlalchemy import Column
-from sqlalchemy.types import JSON as SAJSON
-from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, Relationship, SQLModel
 
 from schema.links import UserEventRSVPLink
+from schema.time_range import TimeRangeType
 
 if TYPE_CHECKING:
     from schema.group import Group
     from schema.user import User
-
-
-class TimeRangeType(TypeDecorator):
-    """Store tuple[time, time] as JSON list of ISO time strings."""
-
-    impl = SAJSON
-    cache_ok = True
-
-    def process_bind_param(self, value: Any, dialect: Any) -> list[str] | None:
-        if value is None:
-            return None
-        start, end = value
-        return [start.isoformat(), end.isoformat()]
-
-    def process_result_value(self, value: Any, dialect: Any) -> tuple[time, time] | None:
-        if value is None:
-            return None
-        return _parse_time(value[0]), _parse_time(value[1])
-
 
 class EventCreate(SQLModel):
     """Fields callers may provide when creating an event."""

@@ -381,9 +381,35 @@ async def add_to_group(link: UserIncomingGroupLink, id_req: int, authorization: 
                 raise HTTPException(status_code=404, detail="no such user")
             if id_req not in group.users or link.user_id in group.users or link.user_id in group.user_requests:
                 raise HTTPException(status_code=400, detail="wrong users")
-            group.user_requests.append(added_user)
+            if len(group.users) + len(group.user_requests) > 20:
+                group.user_requests.append(added_user)
             session.commit()
             return group
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+@app.post("/respond_user_request/{id_req}/{response}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def respond_user_request(id_req: int, uid: int, response: bool, authorization: Annotated[str | None, Header()] = None):
+    if not validate_uid(authorization, uid):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            group: Group | None = session.exec(select(Group).where(Group.id == id_req)).first()
+            added_user: User | None = session.exec(select(User).where(User.id == uid)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            if added_user is None:
+                raise HTTPException(status_code=404, detail="no such user")
+            if uid not in group.user_requests:
+                raise HTTPException(status_code=400, detail="wrong users")
+            if len(group.users) + len(group.user_requests) > 20 and response:
+                group.users.append(added_user)
+                group.user_requests.remove(added_user)
+            if not response:
+                group.user_requests.remove(added_user)
+            session.commit()
     except HTTPException as e:
         raise e
     except:

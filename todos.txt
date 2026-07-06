@@ -4,7 +4,10 @@ THE KEYS:
     Launch First, Improve Later
 
 Features:
-    An actual availability schema
+    locations
+    get the intervals in which users are free
+    save recent events for suggestions 
+        consolidate similar events
     More stuff for events (better reactions, images)
     People limit in groups
     Cool shit (global events, suggestions, etc)

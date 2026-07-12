@@ -1,6 +1,7 @@
 from datetime import date, datetime, time
 from typing import Any, TYPE_CHECKING
 
+from google.api_core.exceptions import InvalidArgument
 from pydantic import field_validator, computed_field, model_validator
 from sqlalchemy import Column
 from sqlmodel import Field, Relationship, SQLModel
@@ -69,6 +70,8 @@ def _parse_time(value: Any) -> time:
 
 
 def create_event(data: EventCreate) -> Event:
+    if data.time_range[0] > data.time_range[1]:
+        raise InvalidArgument
     """Build a new Event from caller-provided fields only."""
     return Event.model_validate(data.model_dump())
 

@@ -1,12 +1,13 @@
 from datetime import time
 from typing import TYPE_CHECKING
 
+from google.api_core.exceptions import InvalidArgument
 from pydantic.v1 import BaseModel
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship, SQLModel
 
 from schema.links import UserEventRSVPLink, UserGroupLink, UserIncomingGroupLink
-from schema.time_range import AvailabilitySlot
+from schema.time_range import AvailabilitySlot, roundTime, DayOfWeek, getIntervalIntersections
 
 if TYPE_CHECKING:
     from schema.event import Event
@@ -73,6 +74,18 @@ class User(UserCreate, table=True):
 
 def create_user(data: UserCreate, availabilities: list[AvailabilitySlot]) -> User:
     """Build a new User from caller-provided fields only."""
+    sanitized_availabilities = []
+
+    for slot in availabilities:
+        if slot.time_range[0] < slot.time_range[1]:
+            slot.time_range = roundTime(slot.time_range)
+            sanitized_availabilities.append(slot)
+
+    for day in DayOfWeek:
+        if getIntervalIntersections(sanitized_availabilities, day)[0] > 0:
+            raise InvalidArgument
+    
+
     user = User.model_validate(data.model_dump())
 
 

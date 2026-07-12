@@ -91,3 +91,5 @@ def getIntervalIntersections(slots: list[AvailabilitySlot], day: DayOfWeek):
             max_indices.append(index)
     return max_number, max_indices
 
+
+

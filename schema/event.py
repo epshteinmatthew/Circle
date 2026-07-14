@@ -7,7 +7,7 @@ from sqlalchemy import Column
 from sqlmodel import Field, Relationship, SQLModel
 
 from schema.links import UserEventRSVPLink
-from schema.time_range import TimeRangeType
+from schema.time_range import TimeRangeType, _parse_time
 
 if TYPE_CHECKING:
     from schema.group import Group
@@ -60,13 +60,6 @@ class Event(EventCreate, table=True):
         return True
 
 
-
-def _parse_time(value: Any) -> time:
-    if isinstance(value, time):
-        return value
-    if isinstance(value, str):
-        return time.fromisoformat(value)
-    raise TypeError(f"Cannot parse time from {value!r}")
 
 
 def create_event(data: EventCreate) -> Event:

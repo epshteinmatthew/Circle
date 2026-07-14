@@ -6,9 +6,10 @@ from datetime import datetime, time
 from click import group
 from google.api_core.exceptions import InvalidArgument
 from sqlalchemy.orm import Relationship
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, select
 
 from schema import Group, Event
+from schema.database import get_session
 
 
 class PastEventCreate(SQLModel):
@@ -28,6 +29,11 @@ class PastEvent(PastEventCreate, table=True):
     group_id: int = Field(foreign_key="group.id")
     group: "Group" = Relationship()
 
+
+#todo: later
+def search_past_events(name:str):
+    with get_session() as session:
+        events = session.exec(select(PastEvent)).all()
 
 
 def create_past_event(event: Event) -> PastEvent:

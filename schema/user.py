@@ -3,11 +3,11 @@ from typing import TYPE_CHECKING
 
 from google.api_core.exceptions import InvalidArgument
 from pydantic.v1 import BaseModel
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, JSON, Enum
 from sqlmodel import Field, Relationship, SQLModel
 
 from schema.links import UserEventRSVPLink, UserGroupLink, UserIncomingGroupLink
-from schema.time_range import AvailabilitySlot, roundTime, DayOfWeek, getIntervalIntersections
+from schema.time_range import roundTime, DayOfWeek, TimeRangeType
 
 if TYPE_CHECKING:
     from schema.event import Event
@@ -90,5 +90,42 @@ def create_user(data: UserCreate, availabilities: list[AvailabilitySlot]) -> Use
 
 
     return user
+
+class AvailabilitySlot(SQLModel, table=True):
+    __tablename__ = "availability_slots"
+
+    id: int = Field(default=None, primary_key=True)
+
+    # Foreign key referencing the users table
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
+
+    # Store the day as an Enum
+    day: DayOfWeek = Field(sa_column=Column(Enum(DayOfWeek), nullable=False))
+
+    # Use your original custom TimeRangeType here via sa_column!
+    time_range: tuple[time, time] = Field(
+        sa_column=Column(TimeRangeType, nullable=False)
+    )
+
+
+def getIntervalIntersections(slots: list[AvailabilitySlot], day: DayOfWeek):
+    """Returns a tuple (max_number, max_indices) where max_number is the maximum number of intersecting slots, and max_indices is an array of indices which correspond to times when this intersection takes place.
+    Any given index can be translated to a time by dividing the index by two to get the hours and multiplying the remainder by 30 to get the minutes"""
+    intersect_list = [0] * 48
+    max_number = 0
+    for slot in slots:
+        if slot.day == day:
+            start = slot.time_range[0].hour * 2 + slot.time_range[0].minute // 30
+            end = slot.time_range[1].hour * 2 + slot.time_range[1].minute // 30
+            for i in range(start, end+1):
+                intersect_list[i] += 1
+                if intersect_list[i] > max_number:
+                    max_number = intersect_list[i]
+    max_indices = []
+    for item, index in enumerate(intersect_list):
+        if item == max_number:
+            max_indices.append(index)
+    return max_number, max_indices
+
 
 

@@ -29,7 +29,7 @@ from schema.database import get_session, init_db
 from schema.event import EventData
 from schema.group import GroupData
 from schema.links import UserIncomingGroupLink
-from schema.time_range import AvailabilitySlot
+from schema.user import AvailabilitySlot
 from setup import GOOGLE_CLIENT_ID
 from pyrate_limiter import Duration, Limiter, Rate
 from fastapi_limiter.depends import RateLimiter

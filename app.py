@@ -25,6 +25,7 @@ from schema import (
     create_group,
     create_user,
 )
+from schema.availabilities import getIntervalIntersections, DayOfWeek
 from schema.database import get_session, init_db
 from schema.event import EventData
 from schema.group import GroupData
@@ -420,7 +421,6 @@ async def respond_user_request(id_req: int, uid: int, response: bool, authorizat
 async def leave_group(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None):
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
-    #todo: require auth verify for this and all other similar stuff
     try:
         with get_session() as session:
             group:Group|None = session.exec(select(Group).where(Group.id == group_id)).first()
@@ -438,6 +438,63 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
         raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
+
+
+@app.get("/get_user_availabilities.py/{id_req}",  dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def get_user_availabilities(id_req: int, authorization: Annotated[str | None, Header()] = None) -> Sequence[AvailabilitySlot]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            slots: Sequence[AvailabilitySlot]|None = session.exec(select(AvailabilitySlot).where(AvailabilitySlot.user_id == id_req)).all()
+            if slots is None:
+                raise HTTPException(status_code=404, detail="no such slots")
+            return slots
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+
+@app.get("/get_group_availabilities.py/{id_req}/{group_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def get_group_availabilities(id_req: int, group_id:int, authorization: Annotated[str | None, Header()] = None) -> Sequence[AvailabilitySlot]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            group: Group | None = session.exec(select(Group).where(Group.id == group_id)).first()
+            user: User | None = session.exec(select(User).where(User.id == id_req)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            if user is None:
+                raise HTTPException(status_code=404, detail="no such user")
+            if id_req not in group.users:
+                raise HTTPException(status_code=400, detail="user not in group")
+
+            slots: Sequence[AvailabilitySlot] | None = session.exec(select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_(group.users))).all()
+            if slots is None:
+                raise HTTPException(status_code=404, detail="no such slots")
+            intersections = []
+            for day in DayOfWeek:
+                selected_slots = getIntervalIntersections(list(slots), day)
+                #todo: how to build availability slots from this list
+                for slot in selected_slots:
+                    pass
+            return slots
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+#todo: get best group availability
+
+#todo: update availabilities
+
+
+
+
+
+
 
 
 

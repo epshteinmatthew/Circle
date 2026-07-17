@@ -5,11 +5,9 @@ THE KEYS:
 
 Features:
     locations
-    get the intervals in which users are free
     save recent events for suggestions 
         consolidate similar events
     More stuff for events (better reactions, images)
-    People limit in groups
     Cool shit (global events, suggestions, etc)
     cache
 
@@ -17,3 +15,6 @@ Deployment/Security:
     go thru and give types to everything
     figure out where to store DB
     figure out where to host server (maybe allen school servers?)
+
+Optimizations:
+    think about a document based database

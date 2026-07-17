@@ -14,14 +14,6 @@ def _parse_time(value: Any) -> time:
     raise TypeError(f"Cannot parse time from {value!r}")
 
 
-class DayOfWeek(enum.Enum):
-    MON = "Monday"
-    TUE = "Tuesday"
-    WED = "Wednesday"
-    THU = "Thursday"
-    FRI = "Friday"
-    SAT = "Saturday"
-    SUN = "Sunday"
 
 def roundTime(dt, roundTo=30):
    """Round a datetime object to any time lapse in seconds

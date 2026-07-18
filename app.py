@@ -1,9 +1,9 @@
 """Circle Flask application and schema usage example."""
 import json
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
 import time as timeint
-from typing import Annotated
+from typing import Annotated, TypedDict, Any
 
 import jwt
 from fastapi import FastAPI, HTTPException, Header, Depends
@@ -25,7 +25,7 @@ from schema import (
     create_group,
     create_user,
 )
-from schema.availabilities import getIntervalIntersections, DayOfWeek
+from schema.availabilities import getIntervalIntersections, DayOfWeek, getBestIntervalIntersection
 from schema.database import get_session, init_db
 from schema.event import EventData
 from schema.group import GroupData
@@ -457,7 +457,7 @@ async def get_user_availabilities(id_req: int, authorization: Annotated[str | No
 
 
 @app.get("/get_group_availabilities.py/{id_req}/{group_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def get_group_availabilities(id_req: int, group_id:int, authorization: Annotated[str | None, Header()] = None) -> Sequence[AvailabilitySlot]:
+async def get_group_availabilities(id_req: int, group_id:int, authorization: Annotated[str | None, Header()] = None) -> dict[str, list[int]]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -474,19 +474,59 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
             slots: Sequence[AvailabilitySlot] | None = session.exec(select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_(group.users))).all()
             if slots is None:
                 raise HTTPException(status_code=404, detail="no such slots")
-            intersections = []
+            intersections = {}
             for day in DayOfWeek:
                 selected_slots = getIntervalIntersections(list(slots), day)
-                #todo: how to build availability slots from this list
-                for slot in selected_slots:
-                    pass
-            return slots
+                intersections[day.name] = selected_slots
+            return intersections
     except HTTPException as e:
         raise e
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-#todo: get best group availability
+
+@app.get("/get_group_availabilities.py/{id_req}/{group_id}",
+         dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def get_best_group_availability(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None) -> \
+list[AvailabilitySlot]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            group: Group | None = session.exec(select(Group).where(Group.id == group_id)).first()
+            user: User | None = session.exec(select(User).where(User.id == id_req)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            if user is None:
+                raise HTTPException(status_code=404, detail="no such user")
+            if id_req not in group.users:
+                raise HTTPException(status_code=400, detail="user not in group")
+
+            slots: Sequence[AvailabilitySlot] | None = session.exec(
+                select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_(group.users))).all()
+            if slots is None:
+                raise HTTPException(status_code=404, detail="no such slots")
+            intersections = []
+            for day in DayOfWeek:
+                selected_slots = getBestIntervalIntersection(list(slots), day)
+                found = False
+                #using this to get around the fact that i cant use break statement
+                done = False
+                start_time = time()
+                end_time = time()
+                for slot, indx in enumerate(selected_slots[1]):
+                    if slot == selected_slots[0] and not found and not done:
+                        found = True
+                        start_time = time(indx // 2, (indx % 2) * 30)
+                    if slot != selected_slots[0] and found and not done:
+                        end_time = time(indx // 2, (indx % 2) * 30)
+                        done = True
+                intersections.append(AvailabilitySlot(user_id=1, day=day, time_range=(start_time, end_time)))
+            return intersections
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
 #todo: update availabilities
 

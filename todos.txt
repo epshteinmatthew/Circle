@@ -10,6 +10,8 @@ Features:
     More stuff for events (better reactions, images)
     Cool shit (global events, suggestions, etc)
     cache
+    shared photo album (memories)
+    finish routes for poll time (important!)
 
 Deployment/Security:
     go thru and give types to everything

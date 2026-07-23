@@ -514,7 +514,7 @@ list[AvailabilitySlot]:
                 done = False
                 start_time = time()
                 end_time = time()
-                for slot, indx in enumerate(selected_slots[1]):
+                for indx, slot in enumerate(selected_slots[1]):
                     if slot == selected_slots[0] and not found and not done:
                         found = True
                         start_time = time(indx // 2, (indx % 2) * 30)

@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+
 from typing import Any, TYPE_CHECKING
 
 from google.api_core.exceptions import InvalidArgument
@@ -69,6 +70,7 @@ class Event(EventCreate, table=True):
             #add one to the rsvp users index because the creator's suggested time is always first
             index:int = self.rsvp_users.index(user) + 1
             self.poll_times[index] = (time[0], time[1])
+            self.compute_best_poll_time()
             return True
         self.rsvp_users.append(user)
         self.poll_times.append((time[0], time[1]))
@@ -84,18 +86,31 @@ class Event(EventCreate, table=True):
             #hacky but OK
             del self.poll_times[index]
             self.rsvp_users.remove(user)
+            self.compute_best_poll_time()
             return True
         return False
 
     def compute_best_poll_time(self):
         intersect_list = [0] * 48
         max_number = 0
-        #todo: finish this
-
-
-
-
-
+        for tme in self.poll_times:
+            start = tme[0].hour * 2 + tme[0].minute // 30
+            end = tme[1].hour * 2 + tme[1].minute // 30
+            for i in range(start, end + 1):
+                intersect_list[i] += 1
+                if intersect_list[i] > max_number:
+                    max_number = intersect_list[i]
+        seen = False
+        start = time()
+        end = time()
+        for indx, item in enumerate(intersect_list):
+            if not seen and item == max_number:
+                start = time(indx // 2, (indx % 2) * 30)
+                seen = True
+            if seen and item != max_number:
+                #we are now on the first time outside the interval so we get the index before it
+                end = time((indx-1) // 2, ((indx-1) % 2) * 30)
+        self.best_poll_time = (start, end)
 
 
 def create_event(data: EventCreate) -> Event:

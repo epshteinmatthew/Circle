@@ -47,7 +47,7 @@ def getBestIntervalIntersection(slots: list[AvailabilitySlot], day: DayOfWeek):
                 if intersect_list[i] > max_number:
                     max_number = intersect_list[i]
     max_indices = []
-    for item, index in enumerate(intersect_list):
+    for index, item in enumerate(intersect_list):
         if item == max_number:
             max_indices.append(index)
     return max_number, max_indices

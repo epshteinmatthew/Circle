@@ -63,7 +63,7 @@ class Event(EventCreate, table=True):
         self.rsvp_users.remove(user)
         return True
 
-    def add_poll_time(self, user: "User", time: "TimeRangeType") -> bool:
+    def add_poll_time(self, user: "User", time: tuple[time, time]) -> bool:
         if len(self.poll_times) == 0 or len(self.poll_times) != len(self.rsvp_users) + 1:
             return False
         if user in self.rsvp_users:
@@ -77,7 +77,7 @@ class Event(EventCreate, table=True):
         return True
 
 
-    def remove_poll_time(self, user: "User", time: "TimeRangeType") -> bool:
+    def remove_poll_time(self, user: "User") -> bool:
         if len(self.poll_times) == 0 or len(self.poll_times) != len(self.rsvp_users) + 1:
             return False
         if user in self.rsvp_users:
@@ -100,9 +100,14 @@ class Event(EventCreate, table=True):
                 intersect_list[i] += 1
                 if intersect_list[i] > max_number:
                     max_number = intersect_list[i]
+        if max_number == 1:
+            #if the highest frequency intersection is frequency of 1, just go with the time given by the creator of the event
+            self.best_poll_time = (self.time_range[0], self.time_range[1])
+            return
         seen = False
         start = time()
         end = time()
+        #todo: some way to discriminate based on length of best interval.
         for indx, item in enumerate(intersect_list):
             if not seen and item == max_number:
                 start = time(indx // 2, (indx % 2) * 30)
@@ -113,11 +118,14 @@ class Event(EventCreate, table=True):
         self.best_poll_time = (start, end)
 
 
-def create_event(data: EventCreate) -> Event:
+def create_event(data: EventCreate, polling: bool) -> Event:
     if data.time_range[0] > data.time_range[1]:
         raise InvalidArgument
     """Build a new Event from caller-provided fields only."""
-    return Event.model_validate(data.model_dump())
+    event =  Event.model_validate(data.model_dump())
+    if polling:
+        event.poll_times.append(event.time_range)
+    return event
 
 
 class EventData(SQLModel):

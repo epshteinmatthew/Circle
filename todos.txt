@@ -11,9 +11,9 @@ Features:
     Cool shit (global events, suggestions, etc)
     cache
     shared photo album (memories)
-    finish routes for poll time (important!)
 
 Deployment/Security:
+    do another DB reset
     go thru and give types to everything
     figure out where to store DB
     figure out where to host server (maybe allen school servers?)

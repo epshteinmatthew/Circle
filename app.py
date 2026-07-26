@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Header, Depends
 from flask import jsonify
 from google.auth.transport import requests
 from google.oauth2 import id_token
+from sqlalchemy import Select
 from sqlmodel import select, col, delete, or_
 
 import setup
@@ -30,6 +31,7 @@ from schema.database import get_session, init_db
 from schema.event import EventData
 from schema.group import GroupData
 from schema.links import UserIncomingGroupLink
+from schema.time_range import roundTime
 from schema.user import AvailabilitySlot
 from setup import GOOGLE_CLIENT_ID
 from pyrate_limiter import Duration, Limiter, Rate
@@ -140,10 +142,6 @@ async def logout(authorization: Annotated[str | None, Header()] = None):
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-#todo: google path
-#this will do login and then split into either a sign up flow or give you your user
-#to get your user you need name and email OR id
-#these will always be the ones tied to the google account for simplicity's sake
 
 @app.post("/sign_up", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token:str):
@@ -288,7 +286,7 @@ async def get_event_users(id_req, authorization: Annotated[str | None, Header()]
         raise HTTPException(status_code=500, detail="Something went wrong")
 
 @app.post("/create_event/{group_id}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def create_event_route(group_id, event_data:EventCreate, authorization: Annotated[str | None, Header()] = None) -> Event:
+async def create_event_route(group_id, polling:bool, event_data:EventCreate, authorization: Annotated[str | None, Header()] = None) -> Event:
     if not validate_uid(authorization, event_data.created_by):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -296,7 +294,7 @@ async def create_event_route(group_id, event_data:EventCreate, authorization: An
             group:Group|None = session.exec(select(Group).where(Group.id == group_id)).first()
             if group is None:
                 raise HTTPException(status_code=404, detail="no such group")
-            event = create_event(event_data)
+            event = create_event(event_data, polling)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
             session.add(event)
             session.commit()
@@ -307,9 +305,11 @@ async def create_event_route(group_id, event_data:EventCreate, authorization: An
         raise HTTPException(status_code=500, detail="Something went wrong")
 
 
+
 @app.post("/update_event", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def update_event(event_data: EventData, authorization: Annotated[str | None, Header()] = None) -> Event:
+async def update_event(event_data: EventData,polling:bool, authorization: Annotated[str | None, Header()] = None) -> Event:
     #todo: what to do with RSVP?
+    #note, do not allow poll to go from false to true.
     if not validate_uid(authorization, event_data.created_by):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -320,6 +320,9 @@ async def update_event(event_data: EventData, authorization: Annotated[str | Non
             event.name = event_data.name
             event.day = event_data.day
             event.time_range = event_data.time_range
+            if len(event.poll_times) > 0 and not polling:
+                event.poll_times = []
+                event.time_range = event.best_poll_time
             session.add(event)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
             return event
@@ -343,6 +346,85 @@ async def delete_event_route(id_req: int, uid:int,  authorization: Annotated[str
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
             return True
 
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+@app.post("/rsvp_to_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> bool:
+    if not validate_uid(authorization, uid):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            event: Event | None = session.exec(select(Event).where(Event.id == id_req)).first()
+            if event is None:
+                raise HTTPException(status_code=404, detail="no such event")
+            group: Group | None = session.exec(select(Group).where(Group.id == event.group_id)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            userList = [item for item in group.users if item.id == uid]
+            if len(userList) == 0:
+                raise HTTPException(status_code=404, detail="user not in group")
+            if len(event.poll_times) > 0:
+                raise HTTPException(status_code=404, detail="must have a poll time")
+            event.add_rsvp(userList[0])
+            return True
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+
+@app.post("/rsvp_to_event_poll/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def rsvp_to_event(id_req: int, uid:int, poll_time: tuple[time, time], authorization: Annotated[str | None, Header()] = None) -> bool:
+    if not validate_uid(authorization, uid):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            event: Event | None = session.exec(select(Event).where(Event.id == id_req)).first()
+            if event is None:
+                raise HTTPException(status_code=404, detail="no such event")
+            group: Group | None = session.exec(select(Group).where(Group.id == event.group_id)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            userList = [item for item in group.users if item.id == uid]
+            if len(userList) == 0:
+                raise HTTPException(status_code=404, detail="user not in group")
+            if len(event.poll_times) == 0:
+                raise HTTPException(status_code=404, detail="not open to poll")
+            poll_time = (roundTime(poll_time[0]), roundTime(poll_time[1]))
+            if poll_time[0] > poll_time[1]:
+                raise HTTPException(status_code=400, detail="bad poll time")
+            event.add_poll_time(userList[0], poll_time)
+            return True
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+
+
+@app.post("/remove_rsvp_to_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> bool:
+    if not validate_uid(authorization, uid):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            event: Event | None = session.exec(select(Event).where(Event.id == id_req)).first()
+            if event is None:
+                raise HTTPException(status_code=404, detail="no such event")
+            group: Group | None = session.exec(select(Group).where(Group.id == event.group_id)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            userList = [item for item in group.users if item.id == uid and item in event.rsvp_users]
+            if len(userList) == 0:
+                raise HTTPException(status_code=404, detail="user not in group or not RSVP'd")
+            if len(event.poll_times) > 0:
+                event.remove_poll_time(userList[0])
+                return True
+            event.add_rsvp(userList[0])
+            return True
     except HTTPException as e:
         raise e
     except:

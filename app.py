@@ -387,7 +387,7 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
 
 
 @app.post("/rsvp_to_event_poll/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def rsvp_to_event(id_req: int, uid:int, poll_time: tuple[time, time], authorization: Annotated[str | None, Header()] = None) -> Event:
+async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time], authorization: Annotated[str | None, Header()] = None) -> Event:
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -654,7 +654,7 @@ async def add_availability(id_req:int, aSlot: AvailabilitySlot, authorization: A
 
 
 @app.post("/update_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def add_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
+async def update_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -687,7 +687,7 @@ async def add_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, aut
 
 
 @app.post("/delete_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def add_availability(id_req: int, slot_id: int, authorization: Annotated[str | None, Header()] = None) ->bool:
+async def delete_availability(id_req: int, slot_id: int, authorization: Annotated[str | None, Header()] = None) ->bool:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
     try:

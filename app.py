@@ -157,6 +157,11 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
                 if same_name_and_email:
                     raise HTTPException(status_code = 409, detail = "Duplicate name and email")
                 session.add(new_user)
+                if new_user.id is None:
+                    raise HTTPException(status_code=500, detail="Something went wrong")
+                for slot in availabilities:
+                    slot.user_id = new_user.id
+                    session.add(slot)
                 session.commit()
                 if new_user.id is None:
                     raise HTTPException(status_code=500)
@@ -325,6 +330,7 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
                 event.time_range = event.best_poll_time
             session.add(event)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
+            session.commit()
             return event
 
     except HTTPException as e:
@@ -344,6 +350,7 @@ async def delete_event_route(id_req: int, uid:int,  authorization: Annotated[str
                 raise HTTPException(status_code=404, detail="no such event")
             session.delete(event)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
+            session.commit()
             return True
 
     except HTTPException as e:
@@ -369,6 +376,9 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
             if len(event.poll_times) > 0:
                 raise HTTPException(status_code=404, detail="must have a poll time")
             event.add_rsvp(userList[0])
+            session.add(event)
+            delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
+            session.commit()
             return True
     except HTTPException as e:
         raise e
@@ -377,7 +387,7 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
 
 
 @app.post("/rsvp_to_event_poll/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def rsvp_to_event(id_req: int, uid:int, poll_time: tuple[time, time], authorization: Annotated[str | None, Header()] = None) -> bool:
+async def rsvp_to_event(id_req: int, uid:int, poll_time: tuple[time, time], authorization: Annotated[str | None, Header()] = None) -> Event:
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -397,7 +407,10 @@ async def rsvp_to_event(id_req: int, uid:int, poll_time: tuple[time, time], auth
             if poll_time[0] > poll_time[1]:
                 raise HTTPException(status_code=400, detail="bad poll time")
             event.add_poll_time(userList[0], poll_time)
-            return True
+            session.add(event)
+            delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
+            session.commit()
+            return event
     except HTTPException as e:
         raise e
     except:
@@ -406,7 +419,7 @@ async def rsvp_to_event(id_req: int, uid:int, poll_time: tuple[time, time], auth
 
 
 @app.post("/remove_rsvp_to_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> bool:
+async def remove_rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> Event:
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -422,9 +435,12 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
                 raise HTTPException(status_code=404, detail="user not in group or not RSVP'd")
             if len(event.poll_times) > 0:
                 event.remove_poll_time(userList[0])
-                return True
-            event.add_rsvp(userList[0])
-            return True
+            else:
+                event.remove_rsvp(userList[0])
+            session.add(event)
+            delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
+            session.commit()
+            return event
     except HTTPException as e:
         raise e
     except:
@@ -569,8 +585,7 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
 
 @app.get("/get_group_availabilities.py/{id_req}/{group_id}",
          dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
-async def get_best_group_availability(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None) -> \
-list[AvailabilitySlot]:
+async def get_best_group_availability(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -610,7 +625,83 @@ list[AvailabilitySlot]:
     except:
         raise HTTPException(status_code=500, detail="Something went wrong")
 
-#todo: update availabilities
+@app.post("/add_availability/{id_req}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def add_availability(id_req:int, aSlot: AvailabilitySlot, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+
+            availabilities: list[AvailabilitySlot] = list(session.exec(select(AvailabilitySlot).where(AvailabilitySlot.user_id == id_req)).all())
+            if aSlot.time_range[0] > aSlot.time_range[1]:
+                raise HTTPException(status_code=400, detail="overlapping time for slot")
+            sanitized_availabilities:list[AvailabilitySlot] = [aSlot]
+            for slot in availabilities:
+                if slot.time_range[0] < slot.time_range[1]:
+                    slot.time_range = roundTime(slot.time_range)
+                    sanitized_availabilities.append(slot)
+
+            for day in DayOfWeek:
+                if getIntervalIntersections(sanitized_availabilities, day)[0] > 0:
+                    raise HTTPException(status_code=400, detail="overlapping availabilities")
+            session.add(aSlot)
+            session.commit()
+            return sanitized_availabilities
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+
+@app.post("/update_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def add_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            old_slot: AvailabilitySlot|None = session.exec(select(AvailabilitySlot).where(AvailabilitySlot.id == slot_id, AvailabilitySlot.user_id == id_req)).first()
+            if old_slot is None:
+                raise HTTPException(status_code=400, detail="No such slot")
+            aSlot.id = old_slot.id
+            availabilities: list[AvailabilitySlot] = list(
+                session.exec(select(AvailabilitySlot).where(AvailabilitySlot.user_id == id_req, AvailabilitySlot.id != slot_id)).all())
+            if aSlot.time_range[0] > aSlot.time_range[1]:
+                raise HTTPException(status_code=400, detail="overlapping time for slot")
+            sanitized_availabilities: list[AvailabilitySlot] = [aSlot]
+            for slot in availabilities:
+                if slot.time_range[0] < slot.time_range[1]:
+                    slot.time_range = roundTime(slot.time_range)
+                    sanitized_availabilities.append(slot)
+
+            for day in DayOfWeek:
+                if getIntervalIntersections(sanitized_availabilities, day)[0] > 0:
+                    raise HTTPException(status_code=400, detail="overlapping availabilities")
+            old_slot = aSlot
+            session.add(old_slot)
+            session.commit()
+            return sanitized_availabilities
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
+
+
+@app.post("/delete_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+async def add_availability(id_req: int, slot_id: int, authorization: Annotated[str | None, Header()] = None) ->bool:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            old_slot: AvailabilitySlot | None = session.exec(select(AvailabilitySlot).where(AvailabilitySlot.id == slot_id,AvailabilitySlot.user_id == id_req)).first()
+            if old_slot is None:
+                raise HTTPException(status_code=400, detail="No such slot")
+            session.add(old_slot)
+            session.commit()
+            return True
+    except HTTPException as e:
+        raise e
+    except:
+        raise HTTPException(status_code=500, detail="Something went wrong")
 
 
 

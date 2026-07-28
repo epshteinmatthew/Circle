@@ -21,6 +21,8 @@ class EventCreate(SQLModel):
 
     name: str
     description: str
+    address: str
+    location_name: str
     day: date
     time_range: tuple[time, time]
     created_by: int

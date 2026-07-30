@@ -14,6 +14,38 @@ if TYPE_CHECKING:
     from schema.group import Group
     from schema.user import User
 
+from typing import Any
+from datetime import time
+from sqlalchemy import JSON as SAJSON, TypeDecorator
+from sqlalchemy.ext.mutable import MutableList
+
+
+class PollTimesType(TypeDecorator):
+  """Stores list[tuple[time, time]] as a nested JSON list of ISO time strings.
+
+  Db format: [["09:00:00", "10:00:00"], ["13:00:00", "14:00:00"]]
+  Python format: [(time(9, 0), time(10, 0)), (time(13, 0), time(14, 0))]
+  """
+
+  impl = SAJSON
+  cache_ok = True
+
+  def process_bind_param(
+      self, value: Any, dialect: Any
+  ) -> list[list[str]] | None:
+    if value is None:
+      return None
+    # Convert list of (time, time) tuples -> list of [str, str] lists
+    return [[t[0].isoformat(), t[1].isoformat()] for t in value]
+
+  def process_result_value(
+      self, value: Any, dialect: Any
+  ) -> list[tuple[time, time]]:
+    if not value:
+      return []
+    # Parse list of [str, str] back to list of (time, time) tuples
+    return [(_parse_time(item[0]), _parse_time(item[1])) for item in value]
+
 class EventCreate(SQLModel):
     """Fields callers may provide when creating an event."""
 
@@ -41,7 +73,11 @@ class Event(EventCreate, table=True):
         back_populates="rsvp_events",
         link_model=UserEventRSVPLink,
     )
-    poll_times: list[tuple[time, time]] = Field(sa_column=Column(ARRAY(TimeRangeType)))
+    # List of range tuples using PollTimesType wrapped with MutableList
+    poll_times: list[tuple[time, time]] = Field(
+        default_factory=list,
+        sa_column=Column(MutableList.as_mutable(PollTimesType)),
+    )
     best_poll_time:tuple[time, time] = Field(default=time_range, sa_column=Column(TimeRangeType))
 
     @field_validator("time_range", mode="before")

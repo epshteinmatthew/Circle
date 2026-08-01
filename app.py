@@ -716,7 +716,7 @@ async def delete_availability(id_req: int, slot_id: int, authorization: Annotate
             old_slot: AvailabilitySlot | None = session.exec(select(AvailabilitySlot).where(AvailabilitySlot.id == slot_id,AvailabilitySlot.user_id == id_req)).first()
             if old_slot is None:
                 raise HTTPException(status_code=400, detail="No such slot")
-            session.add(old_slot)
+            session.delete(old_slot)
             session.commit()
             return True
     except HTTPException as e:

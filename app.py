@@ -158,7 +158,7 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
                     raise HTTPException(status_code = 409, detail = "Duplicate name and email")
                 session.add(new_user)
                 if new_user.id is None:
-                    raise HTTPException(status_code=500, detail="Something went wrong")
+                    raise HTTPException(status_code=500, detail="gabagool")
                 for slot in availabilities:
                     slot.user_id = new_user.id
                     session.add(slot)

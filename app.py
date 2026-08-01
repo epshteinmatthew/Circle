@@ -106,8 +106,8 @@ def login(token:str):
             raise HTTPException(status_code=403, detail="Not authorized")
     except HTTPException as e:
             raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 @app.post("/refresh", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def refresh(authorization: Annotated[str | None, Header()] = None):
     try:
@@ -119,8 +119,8 @@ async def refresh(authorization: Annotated[str | None, Header()] = None):
         return res, 200
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.post("/logout", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
@@ -139,8 +139,8 @@ async def logout(authorization: Annotated[str | None, Header()] = None):
         return "logged out"
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.post("/sign_up", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
@@ -158,7 +158,6 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
                     raise HTTPException(status_code = 409, detail = "Duplicate name and email")
                 session.add(new_user)
                 session.commit()
-                new_user: User|None = session.exec(select(User).where(User.email == user_data.email)).first()
                 if new_user.id is None:
                     raise HTTPException(status_code=500, detail="gabagool")
                 for slot in availabilities:
@@ -191,8 +190,8 @@ async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()
             raise HTTPException(status_code=404, detail="User not found")
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.get("/get_all_user_events/{id_req}")
@@ -211,8 +210,8 @@ async def get_all_user_events(id_req, authorization: Annotated[str | None, Heade
             return events
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.get("/get_all_user_rsvp_events/{id_req}")
@@ -231,8 +230,8 @@ async def get_all_user_rsvp_events(id_req, authorization: Annotated[str | None, 
             return events
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.get("/get_all_user_groups/{id_req}")
 async def get_all_user_groups(id_req, authorization: Annotated[str | None, Header()] = None) -> Sequence[Group]:
@@ -250,8 +249,8 @@ async def get_all_user_groups(id_req, authorization: Annotated[str | None, Heade
             return groups
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.get("/get_event/{id_req}")
 async def get_event_by_id(id_req, authorization: Annotated[str | None, Header()] = None) -> Event:
@@ -268,8 +267,8 @@ async def get_event_by_id(id_req, authorization: Annotated[str | None, Header()]
 
     except HTTPException as e:
        raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.get("/get_event_users/{id_req}")
 async def get_event_users(id_req, authorization: Annotated[str | None, Header()] = None) -> Sequence[User]:
@@ -287,8 +286,8 @@ async def get_event_users(id_req, authorization: Annotated[str | None, Header()]
             return users
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.post("/create_event/{group_id}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def create_event_route(group_id, polling:bool, event_data:EventCreate, authorization: Annotated[str | None, Header()] = None) -> Event:
@@ -306,8 +305,8 @@ async def create_event_route(group_id, polling:bool, event_data:EventCreate, aut
             return event
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 
@@ -335,8 +334,8 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
 
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.post("/delete_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
@@ -355,8 +354,8 @@ async def delete_event_route(id_req: int, uid:int,  authorization: Annotated[str
 
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.post("/rsvp_to_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> bool:
@@ -382,8 +381,8 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
             return True
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.post("/rsvp_to_event_poll/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
@@ -413,8 +412,8 @@ async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time],
             return event
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 
@@ -443,8 +442,8 @@ async def remove_rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[s
             return event
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 
@@ -464,8 +463,8 @@ async def create_group_route(group_data: GroupData, authorization: Annotated[str
             return group
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.post("/add_to_group/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def add_to_group(link: UserIncomingGroupLink, id_req: int, authorization: Annotated[str | None, Header()] = None) -> Group:
@@ -487,8 +486,8 @@ async def add_to_group(link: UserIncomingGroupLink, id_req: int, authorization: 
             return group
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.post("/respond_user_request/{id_req}/{response}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def respond_user_request(id_req: int, uid: int, response: bool, authorization: Annotated[str | None, Header()] = None):
@@ -512,8 +511,8 @@ async def respond_user_request(id_req: int, uid: int, response: bool, authorizat
             session.commit()
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.post("/leave_group/{id_req}/{group_id}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def leave_group(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None):
@@ -534,8 +533,8 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
             return group
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.get("/get_user_availabilities.py/{id_req}",  dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
@@ -550,8 +549,8 @@ async def get_user_availabilities(id_req: int, authorization: Annotated[str | No
             return slots
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.get("/get_group_availabilities.py/{id_req}/{group_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
@@ -579,8 +578,8 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
             return intersections
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.get("/get_group_availabilities.py/{id_req}/{group_id}",
@@ -622,8 +621,8 @@ async def get_best_group_availability(id_req: int, group_id: int, authorization:
             return intersections
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.post("/add_availability/{id_req}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def add_availability(id_req:int, aSlot: AvailabilitySlot, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
@@ -649,8 +648,8 @@ async def add_availability(id_req:int, aSlot: AvailabilitySlot, authorization: A
             return sanitized_availabilities
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.post("/update_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
@@ -682,8 +681,8 @@ async def update_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, 
             return sanitized_availabilities
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 @app.post("/delete_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
@@ -700,8 +699,8 @@ async def delete_availability(id_req: int, slot_id: int, authorization: Annotate
             return True
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 
 

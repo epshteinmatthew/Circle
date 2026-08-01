@@ -539,6 +539,7 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
                 raise HTTPException(status_code=400, detail="user not in group")
             events: Sequence[Event] | None = session.exec(select(Event).where(or_(Event.group == group))).all()
             if events is not None:
+                print("anything")
                 events = [event for event in events if event.created_by == user or user in event.rsvp_users]
             #this is garbage
             if events is not None:

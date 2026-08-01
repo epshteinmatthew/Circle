@@ -38,12 +38,12 @@ from pyrate_limiter import Duration, Limiter, Rate
 from fastapi_limiter.depends import RateLimiter
 
 
-def get_user_by_email(email:str) -> User | None:
+def get_user_id_by_email(email:str) -> int | None:
     try:
         with get_session() as session:
             user = session.exec(select(User).where(User.email == email)).first()
             session.commit()
-            return user
+            return user.id
     except:
         return None
 
@@ -96,11 +96,11 @@ def login(token:str):
         idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
         if idinfo['aud'] == GOOGLE_CLIENT_ID and 'accounts.google.com' in idinfo['iss'] and idinfo['exp'] >= timeint.time():
             #plus one day
-            user: User | None = get_user_by_email(idinfo['email'])
-            if user is None or user.id is None:
+            user_id: int | None = get_user_id_by_email(idinfo['email'])
+            if user is None:
                 raise HTTPException(status_code=401, detail="user not found")
-            encoded_jwt = jwt.encode({'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': user.id}, setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
-            refresh_token = generate_refresh_token(user.id)
+            encoded_jwt = jwt.encode({'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': user_id}, setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
+            refresh_token = generate_refresh_token(user_id)
             return jsonify({"jwt": encoded_jwt, "refresh" : refresh_token}), 200
         else:
             raise HTTPException(status_code=403, detail="Not authorized")

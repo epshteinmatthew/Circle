@@ -662,7 +662,10 @@ async def add_availability(id_req:int, aSlot: AvailabilitySlot, authorization: A
             sanitized_availabilities:list[AvailabilitySlot] = [aSlot]
             for slot in availabilities:
                 if slot.time_range[0] < slot.time_range[1]:
-                    slot.time_range = roundTime(slot.time_range)
+                    slot.time_range = (
+                        roundTime(slot.time_range[0]),
+                        roundTime(slot.time_range[1]),
+                    )
                     sanitized_availabilities.append(slot)
 
             for day in DayOfWeek:
@@ -694,7 +697,10 @@ async def update_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, 
             sanitized_availabilities: list[AvailabilitySlot] = [aSlot]
             for slot in availabilities:
                 if slot.time_range[0] < slot.time_range[1]:
-                    slot.time_range = roundTime(slot.time_range)
+                    slot.time_range = (
+                        roundTime(slot.time_range[0]),
+                        roundTime(slot.time_range[1]),
+                    )
                     sanitized_availabilities.append(slot)
 
             for day in DayOfWeek:

@@ -14,20 +14,22 @@ def _parse_time(value: Any) -> time:
     raise TypeError(f"Cannot parse time from {value!r}")
 
 
+def roundTime(value, roundTo=30 * 60):
+    """Round a time-of-day to nearest roundTo seconds (default 30 minutes)."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = time.fromisoformat(value)
+    if isinstance(value, datetime):
+        t = value.time().replace(tzinfo=None)
+    elif isinstance(value, time):
+        t = value.replace(tzinfo=None) if value.tzinfo else value
+    else:
+        raise TypeError(f"Cannot round {value!r}")
 
-def roundTime(dt, roundTo=30):
-   """Round a datetime object to any time lapse in seconds
-   dt : datetime.datetime object, default now.
-   roundTo : Closest number of seconds to round to, default 1 minute.
-   Author: Thierry Husson 2012 - Use it as you want but don't blame me.
-   """
-   if dt == None : return None
-   if isinstance(dt, str):
-       dt = time.fromisoformat(dt)
-   seconds = (dt.replace(tzinfo=None) - dt.min).seconds
-   rounding = (seconds+roundTo/2) // roundTo * roundTo
-   return dt + timedelta(0,rounding-seconds,-dt.microsecond)
-
+    total = t.hour * 3600 + t.minute * 60 + t.second
+    rounded = int((total + roundTo / 2) // roundTo * roundTo) % (24 * 3600)
+    return time(rounded // 3600, (rounded % 3600) // 60, rounded % 60)
 
 
 

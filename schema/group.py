@@ -54,7 +54,7 @@ class Group(GroupCreate, table=True):
 
 def create_group(data: GroupCreate, created_by: "User", users: Sequence["User"]) -> Group:
     """Build a new Group from caller-provided fields only."""
-    group = Group.model_validate({"name": data.name})
+    group = Group.model_validate({"name": data.name, "created_by": data.created_by})
     group.add_user(created_by)
     for user in users:
         group.add_request(user)

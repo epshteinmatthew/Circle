@@ -157,14 +157,14 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
                 if same_name_and_email:
                     raise HTTPException(status_code = 409, detail = "Duplicate name and email")
                 session.add(new_user)
+                session.commit()
+                new_user: User|None = session.exec(select(User).where(User.email == user_data.email)).first()
                 if new_user.id is None:
                     raise HTTPException(status_code=500, detail="gabagool")
                 for slot in availabilities:
                     slot.user_id = new_user.id
                     session.add(slot)
                 session.commit()
-                if new_user.id is None:
-                    raise HTTPException(status_code=500)
                 encoded_jwt = jwt.encode(
                     {'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': new_user.id},
                     setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")

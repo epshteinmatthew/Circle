@@ -97,7 +97,7 @@ def login(token:str):
         if idinfo['aud'] == GOOGLE_CLIENT_ID and 'accounts.google.com' in idinfo['iss'] and idinfo['exp'] >= timeint.time():
             #plus one day
             user_id: int | None = get_user_id_by_email(idinfo['email'])
-            if user is None:
+            if user_id is None:
                 raise HTTPException(status_code=401, detail="user not found")
             encoded_jwt = jwt.encode({'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': user_id}, setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
             refresh_token = generate_refresh_token(user_id)

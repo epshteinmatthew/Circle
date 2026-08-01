@@ -483,6 +483,7 @@ async def create_group_route(group_data: GroupData, authorization: Annotated[str
             group = create_group(GroupCreate(name=group_data.name, created_by=group_data.created_by), creator, users=invitees)
             session.add(group)
             session.commit()
+            session.refresh(group)
             return group
     except HTTPException as e:
         raise e

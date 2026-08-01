@@ -45,6 +45,7 @@ class TimeRangeType(TypeDecorator):
         if value is None:
             return None
         start, end = value
+        start, end = _parse_time(start), _parse_time(end)
         return [start.isoformat(), end.isoformat()]
 
     def process_result_value(self, value: Any, dialect: Any) -> tuple[time, time] | None:

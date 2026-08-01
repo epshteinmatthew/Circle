@@ -31,13 +31,14 @@ class PollTimesType(TypeDecorator):
   cache_ok = True
 
   def process_bind_param(
-      self, value: Any, dialect: Any
+          self, value: Any, dialect: Any
   ) -> list[list[str]] | None:
-    if value is None:
-      return None
-    # Convert list of (time, time) tuples -> list of [str, str] lists
-    return [[t[0].isoformat(), t[1].isoformat()] for t in value]
-
+      if value is None:
+          return None
+      return [
+          [_parse_time(t[0]).isoformat(), _parse_time(t[1]).isoformat()]
+          for t in value
+      ]
   def process_result_value(
       self, value: Any, dialect: Any
   ) -> list[tuple[time, time]]:

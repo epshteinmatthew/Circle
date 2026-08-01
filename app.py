@@ -41,6 +41,7 @@ def event_has_ended(event: Event, now: datetime | None = None) -> bool:
     end = datetime.combine(event.day, event.time_range[1])
     return end < now.replace(tzinfo=None)
 
+"""
 def delete_ended_events(session) -> None:
     now = datetime.now(timezone.utc)
     ended = [
@@ -49,6 +50,7 @@ def delete_ended_events(session) -> None:
     ]
     for e in ended:
         session.delete(e)
+"""
 
 def get_user_id_by_email(email:str) -> int | None:
     try:
@@ -316,7 +318,6 @@ async def create_event_route(group_id, polling:bool, event_data:EventCreate, aut
             if group is None:
                 raise HTTPException(status_code=404, detail="no such group")
             event = create_event(event_data, polling)
-            delete_ended_events(session)
             session.add(event)
             session.commit()
             session.refresh(event)
@@ -347,8 +348,6 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
                 event.time_range = event.best_poll_time
             session.add(event)
 
-            delete_ended_events(session)
-
             session.commit()
             return event
 
@@ -368,7 +367,6 @@ async def delete_event_route(id_req: int, uid:int,  authorization: Annotated[str
             if event is None or event.created_by != uid:
                 raise HTTPException(status_code=404, detail="no such event")
             session.delete(event)
-            delete_ended_events(session)
             session.commit()
             return True
 
@@ -396,7 +394,6 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
                 raise HTTPException(status_code=404, detail="must have a poll time")
             event.add_rsvp(userList[0])
             session.add(event)
-            delete_ended_events(session)
 
             session.commit()
             return True
@@ -428,7 +425,6 @@ async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time],
                 raise HTTPException(status_code=400, detail="bad poll time")
             event.add_poll_time(userList[0], poll_time)
             session.add(event)
-            delete_ended_events(session)
 
             session.commit()
             return event
@@ -459,7 +455,6 @@ async def remove_rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[s
             else:
                 event.remove_rsvp(userList[0])
             session.add(event)
-            delete_ended_events(session)
 
             session.commit()
             return event

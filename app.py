@@ -41,16 +41,14 @@ def event_has_ended(event: Event, now: datetime | None = None) -> bool:
     end = datetime.combine(event.day, event.time_range[1])
     return end < now.replace(tzinfo=None)
 
-"""
 def delete_ended_events(session) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).date()
     ended = [
         e for e in session.exec(select(Event)).all()
-        if event_has_ended(e, now)
+        if e.day < now
     ]
     for e in ended:
         session.delete(e)
-"""
 
 def get_user_id_by_email(email:str) -> int | None:
     try:
@@ -219,6 +217,7 @@ async def get_all_user_events(id_req, authorization: Annotated[str | None, Heade
             if not user:
                 raise HTTPException(status_code = 400, detail = "Bad request")
             rsvp = list(user.rsvp_events)
+            delete_ended_events(session)
             return [e for e in rsvp if not event_has_ended(e)]
     except HTTPException as e:
         raise e
@@ -242,6 +241,7 @@ async def get_all_user_rsvp_events(id_req, authorization: Annotated[str | None, 
                 e for e in events
                 if not event_has_ended(e)
             ]
+            delete_ended_events(session)
             return events
     except HTTPException as e:
         raise e

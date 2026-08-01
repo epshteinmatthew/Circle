@@ -238,10 +238,9 @@ async def get_all_user_rsvp_events(id_req, authorization: Annotated[str | None, 
             if not user:
                 raise HTTPException(status_code=400, detail="Bad request")
             events: Sequence[Event] = session.exec(select(Event).where(Event.created_by == user.id)).all()
-            now = datetime.now(timezone.utc)
             events = [
                 e for e in events
-                if datetime.combine(e.day, e.time_range[1]) < now.replace(tzinfo=None)
+                if not event_has_ended(e)
             ]
             return events
     except HTTPException as e:

@@ -78,7 +78,10 @@ class Event(EventCreate, table=True):
         default_factory=list,
         sa_column=Column(MutableList.as_mutable(PollTimesType)),
     )
-    best_poll_time:tuple[time, time] = Field(default=time_range, sa_column=Column(TimeRangeType))
+    best_poll_time: tuple[time, time] | None = Field(
+        default=None,
+        sa_column=Column(TimeRangeType, nullable=True),
+    )
 
     @field_validator("time_range", mode="before")
     @classmethod
@@ -155,16 +158,14 @@ class Event(EventCreate, table=True):
                 end = time((indx-1) // 2, ((indx-1) % 2) * 30)
         self.best_poll_time = (start, end)
 
-
 def create_event(data: EventCreate, polling: bool) -> Event:
     if data.time_range[0] > data.time_range[1]:
         raise InvalidArgument
-    """Build a new Event from caller-provided fields only."""
-    event =  Event.model_validate(data.model_dump())
+    event = Event.model_validate(data.model_dump())
+    event.best_poll_time = event.time_range
     if polling:
         event.poll_times.append(event.time_range)
     return event
-
 
 class EventData(SQLModel):
     id: int

@@ -184,7 +184,6 @@ async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()
     try:
         with get_session() as session:
             user:User | None = session.exec(select(User).where(User.id == id_req)).first()
-            session.commit()
             if user is not None:
                 return user
             raise HTTPException(status_code=404, detail="User not found")
@@ -206,7 +205,6 @@ async def get_all_user_events(id_req, authorization: Annotated[str | None, Heade
             if not user:
                 raise HTTPException(status_code = 400, detail = "Bad request")
             events:Sequence[Event] = session.exec(select(Event).where(Event.created_by == user.id, datetime.combine(Event.day, Event.time_range[1]) < datetime.now(timezone.utc))).all()
-            session.commit()
             return events
     except HTTPException as e:
         raise e
@@ -226,7 +224,6 @@ async def get_all_user_rsvp_events(id_req, authorization: Annotated[str | None, 
             if not user:
                 raise HTTPException(status_code=400, detail="Bad request")
             events:Sequence[Event] = session.exec(select(Event).where(col(Event.id).in_(user.rsvp_events), datetime.combine(Event.day, Event.time_range[1]) < datetime.now(timezone.utc))).all()
-            session.commit()
             return events
     except HTTPException as e:
         raise e
@@ -245,7 +242,6 @@ async def get_all_user_groups(id_req, authorization: Annotated[str | None, Heade
             if not user:
                 raise HTTPException(status_code=400, detail="Bad request")
             groups:Sequence[Group] = session.exec(select(Group).where(col(Group.id).in_(user.groups))).all()
-            session.commit()
             return groups
     except HTTPException as e:
         raise e
@@ -282,7 +278,6 @@ async def get_event_users(id_req, authorization: Annotated[str | None, Header()]
             if not event:
                 raise HTTPException(status_code=400, detail="Bad request")
             users:Sequence[User] = session.exec(select(User).where(or_(col(User.id).in_(event.rsvp_users), col(User.id) == event.created_by), datetime.combine(Event.day, Event.time_range[1]) < datetime.now(timezone.utc))).all()
-            session.commit()
             return users
     except HTTPException as e:
         raise e
@@ -301,7 +296,6 @@ async def create_event_route(group_id, polling:bool, event_data:EventCreate, aut
             event = create_event(event_data, polling)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
             session.add(event)
-            session.commit()
             return event
     except HTTPException as e:
         raise e
@@ -329,7 +323,6 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
                 event.time_range = event.best_poll_time
             session.add(event)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
-            session.commit()
             return event
 
     except HTTPException as e:
@@ -377,7 +370,6 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
             event.add_rsvp(userList[0])
             session.add(event)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
-            session.commit()
             return True
     except HTTPException as e:
         raise e
@@ -408,7 +400,6 @@ async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time],
             event.add_poll_time(userList[0], poll_time)
             session.add(event)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
-            session.commit()
             return event
     except HTTPException as e:
         raise e
@@ -438,7 +429,6 @@ async def remove_rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[s
                 event.remove_rsvp(userList[0])
             session.add(event)
             delete(Event).where(col(datetime.combine(Event.day, Event.time_range[1])) < datetime.now(timezone.utc))
-            session.commit()
             return event
     except HTTPException as e:
         raise e
@@ -459,7 +449,6 @@ async def create_group_route(group_data: GroupData, authorization: Annotated[str
             invitees:Sequence[User] = session.exec(select(User).where(col(User.id).in_(group_data.users))).all()
             group = create_group(GroupCreate(name=group_data.name, created_by=group_data.created_by), creator, users=invitees)
             session.add(group)
-            session.commit()
             return group
     except HTTPException as e:
         raise e
@@ -482,7 +471,6 @@ async def add_to_group(link: UserIncomingGroupLink, id_req: int, authorization: 
                 raise HTTPException(status_code=400, detail="wrong users")
             if len(group.users) + len(group.user_requests) > 20:
                 group.user_requests.append(added_user)
-            session.commit()
             return group
     except HTTPException as e:
         raise e
@@ -508,7 +496,6 @@ async def respond_user_request(id_req: int, uid: int, response: bool, authorizat
                 group.user_requests.remove(added_user)
             if not response:
                 group.user_requests.remove(added_user)
-            session.commit()
     except HTTPException as e:
         raise e
     except Exception as ex:

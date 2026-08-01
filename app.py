@@ -59,16 +59,6 @@ def get_user_id_by_email(email:str) -> int | None:
     except:
         return None
 
-def delete_event(id:int) -> bool:
-    try:
-        with get_session() as session:
-            event = session.exec(select(Event).where(Event.id == id))
-            session.delete(event)
-            event = session.exec(select(Event).where(Event.id==id))
-            return event is None
-    except:
-        return False
-
 #todo: deep user, deep event, deep group
 #deep event: get the event and all of the users for RSVP and the user for create
 app = FastAPI()
@@ -547,6 +537,13 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
                 raise HTTPException(status_code=404, detail="no such user")
             if id_req not in [user.id for user in group.users]:
                 raise HTTPException(status_code=400, detail="user not in group")
+            events: Sequence[Event] | None = session.exec(select(Event).where(or_(Event.group == group))).all()
+            if events is not None:
+                events = [event for event in events if event.created_by == user or user in event.rsvp_users]
+            #this is garbage
+            if events is not None:
+                for event in events:
+                    session.delete(event)
             group.users.remove(user)
             session.commit()
             return group

@@ -41,7 +41,7 @@ def validate(encoded):
 def validate_uid(encoded, uid:int):
     try:
         decoded = jwt.decode(encoded, setup.GOOGLE_CLIENT_SECRET, algorithms=["HS256"])
-        print(uid)
+        print(decoded['uid'])
         if decoded['exp'] >= time.time() and decoded['cid'] == setup.GOOGLE_CLIENT_ID and decoded['uid'] == uid:
             return True
         else:

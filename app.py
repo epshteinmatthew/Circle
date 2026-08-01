@@ -100,7 +100,7 @@ def login(token:str):
                 raise HTTPException(status_code=401, detail="user not found")
             encoded_jwt = jwt.encode({'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': user_id}, setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
             refresh_token = generate_refresh_token(user_id)
-            return {"jwt": encoded_jwt, "refresh" : refresh_token}, 200
+            return {"jwt": encoded_jwt, "refresh" : refresh_token}
         else:
             raise HTTPException(status_code=403, detail="Not authorized")
     except HTTPException as e:
@@ -115,7 +115,7 @@ async def refresh(authorization: Annotated[str | None, Header()] = None):
         res = refresh_jwt_key(authorization)
         if res == "not allowed":
             raise HTTPException(status_code=403, detail="Not authorized")
-        return res, 200
+        return res
     except HTTPException as e:
         raise e
     except Exception as ex:
@@ -167,7 +167,7 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
                     {'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': new_user.id},
                     setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
                 refresh_token = generate_refresh_token(new_user.id)
-                return {"jwt": encoded_jwt, "refresh": refresh_token, "user_id": new_user.id}, 200
+                return {"jwt": encoded_jwt, "refresh": refresh_token, "user_id": new_user.id}
         raise HTTPException(status_code=401, detail="Not authorized")
     except HTTPException as e:
         raise e

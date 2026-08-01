@@ -248,15 +248,49 @@ Then open **80** and **443** in the OCI security list (and ufw), and you can lea
 
 ## Updating the app later
 
+Circle runs as the systemd service `circle`. Updates are SSH + pull/sync + restart. `git pull` while the service is running is fine; Python already has the old code loaded. The **restart** is what picks up the new code.
+
+### Update from git
+
+SSH into the VM, then:
+
 ```bash
 cd ~/Circle
-# git pull   # or rsync/scp again
+git pull
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt   # only if deps changed
 sudo systemctl restart circle
+sudo systemctl status circle
 ```
 
-Back up the DB before risky changes:
+If the repo was cloned over HTTPS and pulls ask for credentials, set up a deploy key or `gh auth` on the VM once so `git pull` is non-interactive.
+
+### Useful service commands
+
+```bash
+sudo systemctl status circle      # is it up?
+sudo systemctl restart circle     # apply code changes
+sudo systemctl stop circle        # stop API
+sudo systemctl start circle       # start again
+sudo journalctl -u circle -f      # live logs
+```
+
+### If you used rsync instead of git
+
+From your laptop (not the VM):
+
+```bash
+rsync -avz -e "ssh -i /path/to/your-private-key" \
+  --exclude '.venv' --exclude '.git' --exclude '__pycache__' \
+  --exclude 'circle.db' --exclude 'setup.py' --exclude 'refresh.json' \
+  /home/matthew/Documents/Circle/ ubuntu@YOUR_PUBLIC_IP:~/Circle/
+```
+
+Then on the VM: `sudo systemctl restart circle`.
+
+**Don’t** overwrite `setup.py`, `circle.db`, or `refresh.json` with a blind sync — those stay on the server.
+
+### Back up the DB before risky changes
 
 ```bash
 cp ~/Circle/circle.db ~/Circle/circle.db.bak-$(date +%F)
@@ -276,3 +310,10 @@ cp ~/Circle/circle.db ~/Circle/circle.db.bak-$(date +%F)
 - [ ] `http://PUBLIC_IP:8000/` responds
 
 That’s the whole path: free always-on VM, persistent disk, Circle unchanged.
+
+## SSH INTO MACHINE
+
+go to folder Desktop / cirlce_ssh_keys
+
+ssh -i 'ssh-key-2026-08-01(1).key' ubuntu@170.9.13.43
+

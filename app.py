@@ -319,6 +319,7 @@ async def create_event_route(group_id, polling:bool, event_data:EventCreate, aut
             event = create_event(event_data, polling)
             delete_ended_events(session)
             session.add(event)
+            session.commit()
             return event
     except HTTPException as e:
         raise e
@@ -345,7 +346,10 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
                 event.poll_times = []
                 event.time_range = event.best_poll_time
             session.add(event)
+
             delete_ended_events(session)
+
+            session.commit()
             return event
 
     except HTTPException as e:
@@ -393,6 +397,8 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
             event.add_rsvp(userList[0])
             session.add(event)
             delete_ended_events(session)
+
+            session.commit()
             return True
     except HTTPException as e:
         raise e
@@ -423,6 +429,8 @@ async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time],
             event.add_poll_time(userList[0], poll_time)
             session.add(event)
             delete_ended_events(session)
+
+            session.commit()
             return event
     except HTTPException as e:
         raise e
@@ -452,6 +460,8 @@ async def remove_rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[s
                 event.remove_rsvp(userList[0])
             session.add(event)
             delete_ended_events(session)
+
+            session.commit()
             return event
     except HTTPException as e:
         raise e
@@ -472,6 +482,7 @@ async def create_group_route(group_data: GroupData, authorization: Annotated[str
             invitees:Sequence[User] = session.exec(select(User).where(col(User.id).in_(group_data.users))).all()
             group = create_group(GroupCreate(name=group_data.name, created_by=group_data.created_by), creator, users=invitees)
             session.add(group)
+            session.commit()
             return group
     except HTTPException as e:
         raise e
@@ -494,6 +505,8 @@ async def add_to_group(link: UserIncomingGroupLink, id_req: int, authorization: 
                 raise HTTPException(status_code=400, detail="wrong users")
             if len(group.users) + len(group.user_requests) > 20:
                 group.user_requests.append(added_user)
+
+            session.commit()
             return group
     except HTTPException as e:
         raise e

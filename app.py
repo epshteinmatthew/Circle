@@ -7,7 +7,6 @@ from typing import Annotated, TypedDict, Any
 
 import jwt
 from fastapi import FastAPI, HTTPException, Header, Depends
-from flask import jsonify
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from sqlalchemy import Select
@@ -101,7 +100,7 @@ def login(token:str):
                 raise HTTPException(status_code=401, detail="user not found")
             encoded_jwt = jwt.encode({'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': user_id}, setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
             refresh_token = generate_refresh_token(user_id)
-            return jsonify({"jwt": encoded_jwt, "refresh" : refresh_token}), 200
+            return {"jwt": encoded_jwt, "refresh" : refresh_token}, 200
         else:
             raise HTTPException(status_code=403, detail="Not authorized")
     except HTTPException as e:
@@ -168,7 +167,7 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
                     {'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': new_user.id},
                     setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
                 refresh_token = generate_refresh_token(new_user.id)
-                return jsonify({"jwt": encoded_jwt, "refresh": refresh_token, "user_id": new_user.id}), 200
+                return {"jwt": encoded_jwt, "refresh": refresh_token, "user_id": new_user.id}, 200
         raise HTTPException(status_code=401, detail="Not authorized")
     except HTTPException as e:
         raise e

@@ -258,8 +258,7 @@ async def get_all_user_groups(id_req, authorization: Annotated[str | None, Heade
             user:User|None = session.exec(select(User).where(User.id == id_req)).first()
             if not user:
                 raise HTTPException(status_code=400, detail="Bad request")
-            groups:Sequence[Group] = session.exec(select(Group).where(col(Group.id).in_(user.groups))).all()
-            return groups
+            return user.groups
     except HTTPException as e:
         raise e
     except Exception as ex:
@@ -320,6 +319,7 @@ async def create_event_route(group_id, polling:bool, event_data:EventCreate, aut
             delete_ended_events(session)
             session.add(event)
             session.commit()
+            session.refresh(event)
             return event
     except HTTPException as e:
         raise e
@@ -502,7 +502,8 @@ async def add_to_group(link: UserIncomingGroupLink, id_req: int, authorization: 
                 raise HTTPException(status_code=404, detail="no such group")
             if added_user is None:
                 raise HTTPException(status_code=404, detail="no such user")
-            if id_req not in group.users or link.user_id in group.users or link.user_id in group.user_requests:
+            user_id_list = [user.id for user in group.users]
+            if id_req not in user_id_list or link.user_id in user_id_list or link.user_id in [user.id for user in group.user_requests]:
                 raise HTTPException(status_code=400, detail="wrong users")
             if len(group.users) + len(group.user_requests) > 20:
                 group.user_requests.append(added_user)
@@ -526,7 +527,7 @@ async def respond_user_request(id_req: int, uid: int, response: bool, authorizat
                 raise HTTPException(status_code=404, detail="no such group")
             if added_user is None:
                 raise HTTPException(status_code=404, detail="no such user")
-            if uid not in group.user_requests:
+            if uid not in [user.id for user in group.user_requests]:
                 raise HTTPException(status_code=400, detail="wrong users")
             if len(group.users) + len(group.user_requests) > 20 and response:
                 group.users.append(added_user)
@@ -550,7 +551,7 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
                 raise HTTPException(status_code=404, detail="no such group")
             if user is None:
                 raise HTTPException(status_code=404, detail="no such user")
-            if id_req not in group.users:
+            if id_req not in [user.id for user in group.users]:
                 raise HTTPException(status_code=400, detail="user not in group")
             group.users.remove(user)
             session.commit()
@@ -592,7 +593,7 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
             if id_req not in group.users:
                 raise HTTPException(status_code=400, detail="user not in group")
 
-            slots: Sequence[AvailabilitySlot] | None = session.exec(select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_(group.users))).all()
+            slots: Sequence[AvailabilitySlot] | None = session.exec(select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_([u.id for u in group.users]))).all()
             if slots is None:
                 raise HTTPException(status_code=404, detail="no such slots")
             intersections = {}
@@ -606,7 +607,7 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.get("/get_group_availabilities.py/{id_req}/{group_id}",
+@app.get("/get_group_best_availabilities.py/{id_req}/{group_id}",
          dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
 async def get_best_group_availability(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):
@@ -623,7 +624,7 @@ async def get_best_group_availability(id_req: int, group_id: int, authorization:
                 raise HTTPException(status_code=400, detail="user not in group")
 
             slots: Sequence[AvailabilitySlot] | None = session.exec(
-                select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_(group.users))).all()
+                select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_([u.id for u in group.users]))).all()
             if slots is None:
                 raise HTTPException(status_code=404, detail="no such slots")
             intersections = []

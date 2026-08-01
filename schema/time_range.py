@@ -22,6 +22,8 @@ def roundTime(dt, roundTo=30):
    Author: Thierry Husson 2012 - Use it as you want but don't blame me.
    """
    if dt == None : return None
+   if isinstance(dt, str):
+       dt = time.fromisoformat(dt)
    seconds = (dt.replace(tzinfo=None) - dt.min).seconds
    rounding = (seconds+roundTo/2) // roundTo * roundTo
    return dt + timedelta(0,rounding-seconds,-dt.microsecond)

@@ -297,7 +297,7 @@ async def get_event_users(id_req, authorization: Annotated[str | None, Header()]
     except Exception as ex:
         raise HTTPException(status_code=500, detail=repr(ex))
 
-@app.post("/create_event/{group_id}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/create_event/{group_id}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def create_event_route(group_id, polling:bool, event_data:EventCreate, authorization: Annotated[str | None, Header()] = None) -> Event:
     if not validate_uid(authorization, event_data.created_by):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -318,7 +318,7 @@ async def create_event_route(group_id, polling:bool, event_data:EventCreate, aut
 
 
 
-@app.post("/update_event", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/update_event", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def update_event(event_data: EventData,polling:bool, authorization: Annotated[str | None, Header()] = None) -> Event:
     #todo: what to do with RSVP?
     #note, do not allow poll to go from false to true.
@@ -346,7 +346,7 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.post("/delete_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/delete_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def delete_event_route(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> bool:
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -364,7 +364,7 @@ async def delete_event_route(id_req: int, uid:int,  authorization: Annotated[str
     except Exception as ex:
         raise HTTPException(status_code=500, detail=repr(ex))
 
-@app.post("/rsvp_to_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/rsvp_to_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> bool:
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -392,7 +392,7 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.post("/rsvp_to_event_poll/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/rsvp_to_event_poll/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time], authorization: Annotated[str | None, Header()] = None) -> Event:
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -424,7 +424,7 @@ async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time],
 
 
 
-@app.post("/remove_rsvp_to_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/remove_rsvp_to_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def remove_rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> Event:
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -454,7 +454,7 @@ async def remove_rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[s
 
 
 
-@app.post("/create_group", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/create_group", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def create_group_route(group_data: GroupData, authorization: Annotated[str | None, Header()] = None) -> Group:
     if not validate_uid(authorization, group_data.created_by):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -474,7 +474,7 @@ async def create_group_route(group_data: GroupData, authorization: Annotated[str
     except Exception as ex:
         raise HTTPException(status_code=500, detail=repr(ex))
 
-@app.post("/add_to_group/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/add_to_group/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def add_to_group(link: UserIncomingGroupLink, id_req: int, authorization: Annotated[str | None, Header()] = None) -> Group:
     if link.user_id is None or not validate_uid(authorization, link.user_id):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -499,7 +499,7 @@ async def add_to_group(link: UserIncomingGroupLink, id_req: int, authorization: 
     except Exception as ex:
         raise HTTPException(status_code=500, detail=repr(ex))
 
-@app.post("/respond_user_request/{id_req}/{response}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/respond_user_request/{id_req}/{response}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def respond_user_request(id_req: int, uid: int, response: bool, authorization: Annotated[str | None, Header()] = None):
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -523,7 +523,7 @@ async def respond_user_request(id_req: int, uid: int, response: bool, authorizat
     except Exception as ex:
         raise HTTPException(status_code=500, detail=repr(ex))
 
-@app.post("/leave_group/{id_req}/{group_id}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/leave_group/{id_req}/{group_id}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def leave_group(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None):
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -543,7 +543,6 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
             #this is garbage
             if events is not None:
                 for event in events:
-                    print(events)
                     session.delete(event)
             group.users.remove(user)
             session.commit()
@@ -554,7 +553,7 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.get("/get_user_availabilities.py/{id_req}",  dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.get("/get_user_availabilities.py/{id_req}",  dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def get_user_availabilities(id_req: int, authorization: Annotated[str | None, Header()] = None) -> Sequence[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -570,7 +569,7 @@ async def get_user_availabilities(id_req: int, authorization: Annotated[str | No
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.get("/get_group_availabilities.py/{id_req}/{group_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.get("/get_group_availabilities.py/{id_req}/{group_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def get_group_availabilities(id_req: int, group_id:int, authorization: Annotated[str | None, Header()] = None) -> dict[str, list[int]]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -600,7 +599,7 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
 
 
 @app.get("/get_group_best_availabilities.py/{id_req}/{group_id}",
-         dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+         dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def get_best_group_availability(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -641,7 +640,7 @@ async def get_best_group_availability(id_req: int, group_id: int, authorization:
     except Exception as ex:
         raise HTTPException(status_code=500, detail=repr(ex))
 
-@app.post("/add_availability/{id_req}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/add_availability/{id_req}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def add_availability(id_req:int, aSlot: AvailabilitySlot, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -672,7 +671,7 @@ async def add_availability(id_req:int, aSlot: AvailabilitySlot, authorization: A
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.post("/update_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/update_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def update_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -708,7 +707,7 @@ async def update_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, 
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.post("/delete_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])
+@app.post("/delete_availability/{id_req}/{slot_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def delete_availability(id_req: int, slot_id: int, authorization: Annotated[str | None, Header()] = None) ->bool:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")

@@ -30,7 +30,6 @@ def refresh_jwt_key(refresh: str) -> str:
 def validate(encoded):
     try:
         decoded = jwt.decode(encoded, setup.GOOGLE_CLIENT_SECRET, algorithms=["HS256"])
-        print(decoded)
         if decoded['exp'] >= time.time() and decoded['cid'] == setup.GOOGLE_CLIENT_ID:
             return True
         else:
@@ -42,6 +41,7 @@ def validate(encoded):
 def validate_uid(encoded, uid:int):
     try:
         decoded = jwt.decode(encoded, setup.GOOGLE_CLIENT_SECRET, algorithms=["HS256"])
+        print(decoded)
         if decoded['exp'] >= time.time() and decoded['cid'] == setup.GOOGLE_CLIENT_ID and decoded['uid'] == uid:
             return True
         else:

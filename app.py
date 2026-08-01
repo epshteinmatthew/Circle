@@ -173,8 +173,8 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
         raise HTTPException(status_code=401, detail="Not authorized")
     except HTTPException as e:
         raise e
-    except:
-        raise HTTPException(status_code=500, detail="Something went wrong")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.get("/get_user_with_id/{id_req}")
 async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()] = None) -> User:

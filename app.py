@@ -542,8 +542,8 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
                 events = [event for event in events if event.created_by == user or user in event.rsvp_users]
             #this is garbage
             if events is not None:
-                print("anything")
                 for event in events:
+                    print("anything")
                     session.delete(event)
             group.users.remove(user)
             session.commit()

@@ -8,13 +8,13 @@ from schema.time_range import TimeRangeType
 
 
 class DayOfWeek(enum.Enum):
-    MON = "Monday"
-    TUE = "Tuesday"
-    WED = "Wednesday"
-    THU = "Thursday"
-    FRI = "Friday"
-    SAT = "Saturday"
-    SUN = "Sunday"
+    Monday = "Monday"
+    Tuesday = "Tuesday"
+    Wednesday = "Wednesday"
+    Thursday = "Thursday"
+    Friday = "Friday"
+    Saturday = "Saturday"
+    Sunday = "Sunday"
 
 class AvailabilitySlot(SQLModel, table=True):
     __tablename__ = "availability_slots"

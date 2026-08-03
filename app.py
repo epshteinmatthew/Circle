@@ -179,7 +179,7 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
 
 
 @app.post("update_username/{id_req}/{new_name}")
-async def update_username(id_req:int, new_name:str, authorization: Annotated[str | None, Header()] = None) -> User:
+async def update_username(id_req, new_name:str, authorization: Annotated[str | None, Header()] = None) -> User:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
     if not id_req:

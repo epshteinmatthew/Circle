@@ -513,13 +513,13 @@ async def add_to_group(id_req:int, group_id: int, added_user_email: str, authori
             user_id_list = [user.id for user in group.users]
             if id_req not in user_id_list or added_user.id in user_id_list or added_user.id in [user.id for user in group.user_requests]:
                 raise HTTPException(status_code=400, detail="wrong users")
-            if len(group.users) + len(group.user_requests) > 20:
+            if len(group.users) + len(group.user_requests) < 20:
                 group.user_requests.append(added_user)
+                session.commit()
+                session.refresh(group)
+                return group
             else:
-                group.users.append(added_user)
-            session.commit()
-            session.refresh(group)
-            return group
+                raise HTTPException(status_code=400, detail="too many users")
     except HTTPException as e:
         raise e
     except Exception as ex:

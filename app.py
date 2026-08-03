@@ -634,7 +634,7 @@ async def get_group_events(id_req: int, group_id: int, authorization:Annotated[s
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.get("/get_user_availabilities.py/{id_req}",  dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
+@app.get("/get_user_availabilities/{id_req}",  dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def get_user_availabilities(id_req: int, authorization: Annotated[str | None, Header()] = None) -> Sequence[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -650,7 +650,7 @@ async def get_user_availabilities(id_req: int, authorization: Annotated[str | No
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.get("/get_group_availabilities.py/{id_req}/{group_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
+@app.get("/get_group_availabilities/{id_req}/{group_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def get_group_availabilities(id_req: int, group_id:int, authorization: Annotated[str | None, Header()] = None) -> dict[str, list[int]]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -679,7 +679,7 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@app.get("/get_group_best_availabilities.py/{id_req}/{group_id}",
+@app.get("/get_group_best_availabilities/{id_req}/{group_id}",
          dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def get_best_group_availability(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):

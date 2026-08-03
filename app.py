@@ -614,6 +614,9 @@ async def get_group_events(id_req: int, group_id: int, authorization:Annotated[s
         raise HTTPException(status_code=403, detail="not authorized")
     try:
         with get_session() as session:
+            group: Group | None = session.exec(select(Group).where(Group.id == group_id)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
             events: Sequence[Event] | None = session.exec(select(Event).where(Event.group_id == group_id)).all()
             if events is None:
                 raise HTTPException(status_code=404, detail="no such group")

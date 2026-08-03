@@ -148,7 +148,6 @@ class Event(EventCreate, table=True):
                 intersect_list[i] += 1
                 if intersect_list[i] > max_number:
                     max_number = intersect_list[i]
-                    print(end)
         if max_number == 1:
             #if the highest frequency intersection is frequency of 1, just go with the time given by the creator of the event
             self.best_poll_time = (self.time_range[0], self.time_range[1])
@@ -164,6 +163,7 @@ class Event(EventCreate, table=True):
             if seen and item != max_number:
                 #we are now on the first time outside the interval so we get the index before it
                 end = time((indx-1) // 2, ((indx-1) % 2) * 30)
+                print(end)
         self.best_poll_time = (start, end)
 
 def create_event(data: EventCreate, polling: bool) -> Event:

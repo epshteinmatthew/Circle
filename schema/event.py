@@ -98,14 +98,14 @@ class Event(EventCreate, table=True):
         if user in self.rsvp_users:
             return False
         self.rsvp_users.append(user)
-        self.event_rsvps = len(self.rsvp_users) + 1
+        self.event_user_amount = len(self.rsvp_users) + 1
         return True
 
     def remove_rsvp(self, user: "User") -> bool:
         if user not in self.rsvp_users:
             return False
         self.rsvp_users.remove(user)
-        self.event_rsvps = len(self.rsvp_users) + 1
+        self.event_user_amount = len(self.rsvp_users) + 1
         return True
 
     def add_poll_time(self, user: "User", time: tuple[time, time]) -> bool:
@@ -119,7 +119,7 @@ class Event(EventCreate, table=True):
             return True
         self.rsvp_users.append(user)
         self.poll_times.append((time[0], time[1]))
-        self.event_rsvps = len(self.rsvp_users) + 1
+        self.event_user_amount = len(self.rsvp_users) + 1
         return True
 
 
@@ -133,7 +133,7 @@ class Event(EventCreate, table=True):
             del self.poll_times[index]
             self.rsvp_users.remove(user)
             self.compute_best_poll_time()
-            self.event_rsvps = len(self.rsvp_users) + 1
+            self.event_user_amount = len(self.rsvp_users) + 1
             return True
         return False
 

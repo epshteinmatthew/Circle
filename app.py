@@ -607,6 +607,25 @@ async def get_group_users(id_req: int, group_id: int, authorization:Annotated[st
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
+
+@app.get("/get_group_events/{group_id}/{id_req}" , dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
+async def get_group_events(id_req: int, group_id: int, authorization:Annotated[str|None, Header()] = None) -> Sequence[Event]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            events: Sequence[Event] | None = session.exec(select(Event).where(Event.group_id == group_id)).all()
+            if events is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            if id_req not in [user.id for user in group.users]:
+                raise HTTPException(status_code=404, detail="User not in group")
+            return events
+    except HTTPException as e:
+        raise e
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
+
+
 @app.get("/get_user_availabilities.py/{id_req}",  dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def get_user_availabilities(id_req: int, authorization: Annotated[str | None, Header()] = None) -> Sequence[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):

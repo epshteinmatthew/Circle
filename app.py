@@ -370,6 +370,7 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
             session.add(event)
 
             session.commit()
+            session.refresh(event)
             return event
 
     except HTTPException as e:
@@ -397,7 +398,7 @@ async def delete_event_route(id_req: int, uid:int,  authorization: Annotated[str
         raise HTTPException(status_code=500, detail=repr(ex))
 
 @app.post("/rsvp_to_event/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
-async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> bool:
+async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | None, Header()] = None) -> Event:
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -415,9 +416,9 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
                 raise HTTPException(status_code=404, detail="must have a poll time")
             event.add_rsvp(userList[0])
             session.add(event)
-
             session.commit()
-            return True
+            session.refresh(event)
+            return event
     except HTTPException as e:
         raise e
     except Exception as ex:
@@ -451,6 +452,7 @@ async def rsvp_to_event_poll(id_req: int, uid:int, body: PollRsvpBody, authoriza
             event.add_poll_time(userList[0], poll_time)
             session.add(event)
             session.commit()
+            session.refresh(event)
             return event
     except HTTPException as e:
         raise e
@@ -479,8 +481,8 @@ async def remove_rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[s
             else:
                 event.remove_rsvp(userList[0])
             session.add(event)
-
             session.commit()
+            session.refresh(event)
             return event
     except HTTPException as e:
         raise e

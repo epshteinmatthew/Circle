@@ -163,7 +163,8 @@ class Event(EventCreate, table=True):
             if seen and item != max_number:
                 #we are now on the first time outside the interval so we get the index before it
                 end = time((indx-1) // 2, ((indx-1) % 2) * 30)
-                print(end)
+                self.best_poll_time = (start, end)
+                return
         self.best_poll_time = (start, end)
 
 def create_event(data: EventCreate, polling: bool) -> Event:

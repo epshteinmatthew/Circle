@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import time, date, datetime
 from typing import TYPE_CHECKING
 
 from google.api_core.exceptions import InvalidArgument
@@ -90,12 +90,31 @@ def create_user(data: UserCreate, availabilities: list[AvailabilitySlot]) -> Use
 
     return user
 
+class GroupSummary(SQLModel):
+    id: int
+    name: str
+    created_by: int
+
+class EventSummary(SQLModel):
+    id: int
+    name: str
+    description: str
+    address: str
+    location_name: str
+    day: date
+    time_range: tuple[time, time]
+    created_by: int
+    group_id: int
+    created_at: datetime
+    poll_times: list[tuple[time, time]] = Field(default_factory=list)
+    best_poll_time: tuple[time, time] | None = None
+
 class DeepUser(SQLModel):
     id: int
     name: str
-    email:str
-    groups: list["Group"] = []
-    incoming_groups: list["Group"] = []
-    created_events: list["Event"] = []
-    rsvp_events: list["Event"] = []
+    email: str
+    groups: list[GroupSummary] = Field(default_factory=list)
+    incoming_groups: list[GroupSummary] = Field(default_factory=list)
+    created_events: list[EventSummary] = Field(default_factory=list)
+    rsvp_events: list[EventSummary] = Field(default_factory=list)
 

@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Header, Depends
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from sqlalchemy import Select
-from sqlmodel import select, col, delete, or_
+from sqlmodel import select, col, delete, or_, SQLModel
 
 import setup
 from auth import refresh_jwt_key, generate_refresh_token, validate_uid, validate
@@ -424,8 +424,12 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
+class PollRsvpBody(SQLModel):
+    poll_time: tuple[time, time]
+
 @app.post("/rsvp_to_event_poll/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
-async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time], authorization: Annotated[str | None, Header()] = None) -> Event:
+async def rsvp_to_event_poll(id_req: int, uid:int, body: PollRsvpBody, authorization: Annotated[str | None, Header()] = None) -> Event:
+    poll_time = (roundTime(body.poll_time[0]), roundTime(body.poll_time[1]))
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -446,7 +450,6 @@ async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time],
                 raise HTTPException(status_code=400, detail="bad poll time")
             event.add_poll_time(userList[0], poll_time)
             session.add(event)
-
             session.commit()
             return event
     except HTTPException as e:

@@ -165,7 +165,6 @@ class Event(EventCreate, table=True):
                 end = time((indx-1) // 2, ((indx-1) % 2) * 30)
                 self.best_poll_time = (start, end)
                 return
-        self.best_poll_time = (start, end)
 
 def create_event(data: EventCreate, polling: bool) -> Event:
     if data.time_range[0] > data.time_range[1]:

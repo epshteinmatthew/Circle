@@ -177,6 +177,27 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
     except Exception as ex:
         raise HTTPException(status_code=500, detail=repr(ex))
 
+
+@app.post("update_username/{id_req}/{new_name}")
+async def update_username(id_req:int, new_name:str, authorization: Annotated[str | None, Header()] = None) -> User:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    if not id_req:
+        raise HTTPException(status_code = 400, detail = "Bad request")
+    try:
+        with get_session() as session:
+            user:User | None = session.exec(select(User).where(User.id == id_req)).first()
+            if user is not None:
+                user.name = new_name
+                session.add(user)
+                session.commit()
+            raise HTTPException(status_code=404, detail="User not found")
+    except HTTPException as e:
+        raise e
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
+
+
 @app.get("/get_user_with_id/{id_req}")
 async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()] = None) -> User:
     if not validate_uid(authorization, id_req):
@@ -547,6 +568,24 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
             group.users.remove(user)
             session.commit()
             return group
+    except HTTPException as e:
+        raise e
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
+
+
+@app.get("/get_group_users/{group_id}/{id_req}" , dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
+async def get_group_users(id_req: int, group_id: int, authorization:Annotated[str|None, Header()] = None) -> Sequence[User]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    try:
+        with get_session() as session:
+            group: Group | None = session.exec(select(Group).where(Group.id == group_id)).first()
+            if group is None:
+                raise HTTPException(status_code=404, detail="no such group")
+            if id_req not in [user.id for user in group.users]:
+                raise HTTPException(status_code=404, detail="User not in group")
+            return group.users
     except HTTPException as e:
         raise e
     except Exception as ex:

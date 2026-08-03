@@ -119,6 +119,7 @@ class Event(EventCreate, table=True):
             return True
         self.rsvp_users.append(user)
         self.poll_times.append((time[0], time[1]))
+        self.compute_best_poll_time()
         self.event_user_amount = len(self.rsvp_users) + 1
         return True
 

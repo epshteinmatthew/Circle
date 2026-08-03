@@ -101,7 +101,7 @@ def login(token:str):
             user_id: int | None = get_user_id_by_email(idinfo['email'])
             if user_id is None:
                 raise HTTPException(status_code=401, detail="user not found")
-            encoded_jwt = jwt.encode({'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': user_id}, setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
+            encoded_jwt = jwt.encode({'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': user_id}, setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
             refresh_token = generate_refresh_token(user_id)
             return {"jwt": encoded_jwt, "refresh" : refresh_token}
         else:
@@ -167,7 +167,7 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
                     session.add(slot)
                 session.commit()
                 encoded_jwt = jwt.encode(
-                    {'org': idinfo['hd'], 'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': new_user.id},
+                    {'cid': idinfo['aud'], 'exp': timeint.time() + 86400, 'uid': new_user.id},
                     setup.GOOGLE_CLIENT_SECRET, algorithm="HS256")
                 refresh_token = generate_refresh_token(new_user.id)
                 return {"jwt": encoded_jwt, "refresh": refresh_token, "user_id": new_user.id}
@@ -474,24 +474,24 @@ async def create_group_route(group_data: GroupData, authorization: Annotated[str
     except Exception as ex:
         raise HTTPException(status_code=500, detail=repr(ex))
 
-@app.post("/add_to_group/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
-async def add_to_group(link: UserIncomingGroupLink, id_req: int, authorization: Annotated[str | None, Header()] = None) -> Group:
-    if link.user_id is None or not validate_uid(authorization, link.user_id):
+@app.post("/add_to_group/{added_user_name}/{group_id}/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
+async def add_to_group(id_req:int, group_id: int, added_user_name: str, authorization: Annotated[str | None, Header()] = None) -> Group:
+    if added_user_name is None or not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
         with get_session() as session:
-            group:Group|None = session.exec(select(Group).where(Group.id == link.group_id)).first()
-            added_user: User|None = session.exec(select(User).where(User.id == link.user_id)).first()
+
+            group:Group|None = session.exec(select(Group).where(Group.id == group_id)).first()
+            added_user: User|None = session.exec(select(User).where(User.name == added_user_name)).first()
             if group is None:
                 raise HTTPException(status_code=404, detail="no such group")
             if added_user is None:
                 raise HTTPException(status_code=404, detail="no such user")
             user_id_list = [user.id for user in group.users]
-            if id_req not in user_id_list or link.user_id in user_id_list or link.user_id in [user.id for user in group.user_requests]:
+            if id_req not in user_id_list or added_user.id in user_id_list or added_user.id in [user.id for user in group.user_requests]:
                 raise HTTPException(status_code=400, detail="wrong users")
             if len(group.users) + len(group.user_requests) > 20:
                 group.user_requests.append(added_user)
-
             session.commit()
             return group
     except HTTPException as e:
@@ -513,7 +513,7 @@ async def respond_user_request(id_req: int, uid: int, response: bool, authorizat
                 raise HTTPException(status_code=404, detail="no such user")
             if uid not in [user.id for user in group.user_requests]:
                 raise HTTPException(status_code=400, detail="wrong users")
-            if len(group.users) + len(group.user_requests) > 20 and response:
+            if response:
                 group.users.append(added_user)
                 group.user_requests.remove(added_user)
             if not response:

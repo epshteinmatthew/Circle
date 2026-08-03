@@ -495,15 +495,15 @@ async def create_group_route(group_data: GroupData, authorization: Annotated[str
     except Exception as ex:
         raise HTTPException(status_code=500, detail=repr(ex))
 
-@app.post("/add_to_group/{added_user_name}/{group_id}/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
-async def add_to_group(id_req:int, group_id: int, added_user_name: str, authorization: Annotated[str | None, Header()] = None) -> Group:
-    if added_user_name is None or not validate_uid(authorization, id_req):
+@app.post("/add_to_group/{added_user_email}/{group_id}/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
+async def add_to_group(id_req:int, group_id: int, added_user_email: str, authorization: Annotated[str | None, Header()] = None) -> Group:
+    if added_user_email is None or not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
         with get_session() as session:
 
             group:Group|None = session.exec(select(Group).where(Group.id == group_id)).first()
-            added_user: User|None = session.exec(select(User).where(User.name == added_user_name)).first()
+            added_user: User|None = session.exec(select(User).where(User.email == added_user_email)).first()
             if group is None:
                 raise HTTPException(status_code=404, detail="no such group")
             if added_user is None:

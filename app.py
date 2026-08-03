@@ -191,6 +191,8 @@ async def update_username(id_req:int, new_name:str, authorization: Annotated[str
                 user.name = new_name
                 session.add(user)
                 session.commit()
+                session.refresh(user)
+                return user
             raise HTTPException(status_code=404, detail="User not found")
     except HTTPException as e:
         raise e
@@ -513,7 +515,10 @@ async def add_to_group(id_req:int, group_id: int, added_user_email: str, authori
                 raise HTTPException(status_code=400, detail="wrong users")
             if len(group.users) + len(group.user_requests) > 20:
                 group.user_requests.append(added_user)
+            else:
+                group.users.append(added_user)
             session.commit()
+            session.refresh(group)
             return group
     except HTTPException as e:
         raise e

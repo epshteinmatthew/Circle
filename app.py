@@ -442,7 +442,7 @@ async def rsvp_to_event_poll(id_req: int, uid:int, poll_time: tuple[time, time],
             if len(event.poll_times) == 0:
                 raise HTTPException(status_code=404, detail="not open to poll")
             poll_time = (roundTime(poll_time[0]), roundTime(poll_time[1]))
-            if poll_time[0] > poll_time[1]:
+            if poll_time[0] > poll_time[1] or poll_time is None:
                 raise HTTPException(status_code=400, detail="bad poll time")
             event.add_poll_time(userList[0], poll_time)
             session.add(event)

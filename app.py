@@ -544,6 +544,7 @@ async def respond_user_request(id_req: int, uid: int, response: bool, authorizat
                 group.user_requests.remove(added_user)
             if not response:
                 group.user_requests.remove(added_user)
+            session.commit()
     except HTTPException as e:
         raise e
     except Exception as ex:

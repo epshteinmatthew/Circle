@@ -108,6 +108,7 @@ class EventSummary(SQLModel):
     created_at: datetime
     poll_times: list[tuple[time, time]] = Field(default_factory=list)
     best_poll_time: tuple[time, time] | None = None
+    event_user_amount: int
 
 class DeepUser(SQLModel):
     id: int

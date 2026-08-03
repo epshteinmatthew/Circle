@@ -622,7 +622,7 @@ async def get_group_events(id_req: int, group_id: int, authorization:Annotated[s
                 raise HTTPException(status_code=404, detail="no such group")
             if id_req not in [user.id for user in group.users]:
                 raise HTTPException(status_code=404, detail="User not in group")
-            return events
+            return [e for e in events if not event_has_ended(e)]
     except HTTPException as e:
         raise e
     except Exception as ex:

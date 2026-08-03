@@ -147,6 +147,7 @@ class Event(EventCreate, table=True):
                 intersect_list[i] += 1
                 if intersect_list[i] > max_number:
                     max_number = intersect_list[i]
+        print(max_number)
         if max_number == 1:
             #if the highest frequency intersection is frequency of 1, just go with the time given by the creator of the event
             self.best_poll_time = (self.time_range[0], self.time_range[1])

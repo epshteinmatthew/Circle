@@ -90,3 +90,12 @@ def create_user(data: UserCreate, availabilities: list[AvailabilitySlot]) -> Use
 
     return user
 
+class DeepUser(SQLModel):
+    id: int
+    name: str
+    email:str
+    groups: list["Group"] = []
+    incoming_groups: list["Group"] = []
+    created_events: list["Event"] = []
+    rsvp_events: list["Event"] = []
+

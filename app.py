@@ -31,7 +31,7 @@ from schema.event import EventData
 from schema.group import GroupData
 from schema.links import UserIncomingGroupLink
 from schema.time_range import roundTime
-from schema.user import AvailabilitySlot
+from schema.user import AvailabilitySlot, DeepUser
 from setup import GOOGLE_CLIENT_ID
 from pyrate_limiter import Duration, Limiter, Rate
 from fastapi_limiter.depends import RateLimiter
@@ -201,7 +201,7 @@ async def update_username(id_req, new_name:str, authorization: Annotated[str | N
 
 
 @app.get("/get_user_with_id/{id_req}")
-async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()] = None) -> User:
+async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()] = None) -> DeepUser:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized") 
     if not id_req:
@@ -210,7 +210,16 @@ async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()
         with get_session() as session:
             user:User | None = session.exec(select(User).where(User.id == id_req)).first()
             if user is not None:
-                return user
+                created = session.exec(select(Event).where(Event.created_by == user.id)).all()
+                return DeepUser(
+                    id=user.id,
+                    name=user.name,
+                    email=user.email,
+                    groups=list(user.groups),
+                    incoming_groups=list(user.incoming_groups),
+                    rsvp_events=list(user.rsvp_events),
+                    created_events=list(created),
+                )
             raise HTTPException(status_code=404, detail="User not found")
     except HTTPException as e:
         raise e

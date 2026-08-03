@@ -662,7 +662,7 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
                 raise HTTPException(status_code=404, detail="no such group")
             if user is None:
                 raise HTTPException(status_code=404, detail="no such user")
-            if id_req not in group.users:
+            if user not in group.users:
                 raise HTTPException(status_code=400, detail="user not in group")
 
             slots: Sequence[AvailabilitySlot] | None = session.exec(select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_([u.id for u in group.users]))).all()
@@ -692,7 +692,7 @@ async def get_best_group_availability(id_req: int, group_id: int, authorization:
                 raise HTTPException(status_code=404, detail="no such group")
             if user is None:
                 raise HTTPException(status_code=404, detail="no such user")
-            if id_req not in group.users:
+            if user not in group.users:
                 raise HTTPException(status_code=400, detail="user not in group")
 
             slots: Sequence[AvailabilitySlot] | None = session.exec(

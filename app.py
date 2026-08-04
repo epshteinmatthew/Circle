@@ -360,7 +360,7 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
             event: Event | None = session.exec(select(Event).where(Event.id == event_data.id, Event.created_by==event_data.created_by)).first()
             if event is None:
                 raise HTTPException(status_code=404, detail="no such event")
-            if not polling and event.time_range != event_data.time_range:
+            if len(event.poll_times) <= 0 and event.time_range != event_data.time_range:
                 event.rsvp_users = []
                 event.event_user_amount = 1
             event.name = event_data.name
@@ -375,6 +375,7 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
                                 and event_data.time_range[0] <= event.poll_times[index + 1][1]
                 ]
                 event.rsvp_users = new_rsvp
+                event.event_user_amount = len(new_rsvp) + 1
             session.add(event)
 
             session.commit()

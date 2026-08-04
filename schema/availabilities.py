@@ -59,7 +59,7 @@ def getBestIntervalIntersection(slots: list[AvailabilitySlot], weekday: DayOfWee
                 AvailabilitySlot(
                     user_id = 1,
                     day = weekday,
-                    time_range = (start, time(index // 2, (index % 2) * 30))
+                    time_range = (start, time((index-1) // 2, ((index-1) % 2) * 30))
                 )
             )
             start = None

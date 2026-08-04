@@ -364,7 +364,6 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
                 event.rsvp_users = []
                 event.event_user_amount = 1
             event.name = event_data.name
-            event.day = event_data.day
             event.time_range = event_data.time_range
             if len(event.poll_times) > 0 and not polling:
                 new_rsvp = [
@@ -376,6 +375,11 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
                 event.rsvp_users = new_rsvp
                 event.event_user_amount = len(new_rsvp) + 1
                 event.poll_times = []
+            #could probably merge this with the if-clause above, but who cares
+            if event_data.day != event.day:
+                event.rsvp_users = []
+                event.event_user_amount = 1
+            event.day = event_data.day
             session.add(event)
 
             session.commit()

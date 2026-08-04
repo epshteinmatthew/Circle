@@ -190,6 +190,9 @@ async def update_username(id_req, new_name:str, authorization: Annotated[str | N
     try:
         with get_session() as session:
             user:User | None = session.exec(select(User).where(User.id == id_req)).first()
+            same_name: User | None = session.exec(select(User).where(User.name == new_name)).first()
+            if same_name:
+                raise HTTPException(status_code=409, detail="Duplicate name")
             if user is not None:
                 user.name = new_name
                 session.add(user)

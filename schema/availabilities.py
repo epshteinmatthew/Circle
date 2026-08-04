@@ -55,6 +55,7 @@ def getBestIntervalIntersection(slots: list[AvailabilitySlot], weekday: DayOfWee
         elif start is not None:
             best_slots.append(
                 AvailabilitySlot(
+                    user_id = 1,
                     day = weekday,
                     time_range = (start, time(index // 2, (index % 2) * 30))
                 )
@@ -63,6 +64,7 @@ def getBestIntervalIntersection(slots: list[AvailabilitySlot], weekday: DayOfWee
     if start is not None:
         best_slots.append(
             AvailabilitySlot(
+                user_id = 1,
                 day=weekday,
                 time_range=(start, time(23, 30)),
             )

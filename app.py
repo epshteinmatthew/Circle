@@ -367,7 +367,6 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
             event.day = event_data.day
             event.time_range = event_data.time_range
             if len(event.poll_times) > 0 and not polling:
-                event.poll_times = []
                 new_rsvp = [
                     user
                             for index, user in enumerate(event.rsvp_users)
@@ -376,6 +375,7 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
                 ]
                 event.rsvp_users = new_rsvp
                 event.event_user_amount = len(new_rsvp) + 1
+                event.poll_times = []
             session.add(event)
 
             session.commit()

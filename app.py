@@ -154,14 +154,17 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
             'exp'] >= timeint.time():
              # plus one day
             with get_session() as session:
+                user_id: int | None = get_user_id_by_email(idinfo['email'])
+                if user_id is not None:
+                    raise HTTPException(status_code=409, detail="Log in, your account already exists")
                 new_user:User = create_user(user_data, availabilities)
-                same_name_and_email:User|None = session.exec(select(User).where(User.name == new_user.name, User.email == new_user.email)).first()
-                if same_name_and_email:
-                    raise HTTPException(status_code = 409, detail = "Duplicate name and email")
+                same_name:User|None = session.exec(select(User).where(User.name == new_user.name)).first()
+                if same_name:
+                    raise HTTPException(status_code = 409, detail = "Duplicate name")
                 session.add(new_user)
                 session.commit()
                 if new_user.id is None:
-                    raise HTTPException(status_code=500, detail="gabagool")
+                    raise HTTPException(status_code=500, detail="Issue creating user")
                 for slot in availabilities:
                     slot.user_id = new_user.id
                     session.add(slot)

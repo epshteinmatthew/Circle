@@ -352,7 +352,6 @@ async def create_event_route(group_id, polling:bool, event_data:EventCreate, aut
 
 @app.post("/update_event", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def update_event(event_data: EventData,polling:bool, authorization: Annotated[str | None, Header()] = None) -> Event:
-    #todo: what to do with RSVP?
     #note, do not allow poll to go from false to true.
     if not validate_uid(authorization, event_data.created_by):
         raise HTTPException(status_code=403, detail="not authorized")
@@ -361,6 +360,9 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
             event: Event | None = session.exec(select(Event).where(Event.id == event_data.id, Event.created_by==event_data.created_by)).first()
             if event is None:
                 raise HTTPException(status_code=404, detail="no such event")
+            if not polling and event.time_range != event_data.time_range:
+                event.rsvp_users = []
+                event.event_user_amount = 0
             event.name = event_data.name
             event.day = event_data.day
             event.time_range = event_data.time_range

@@ -699,22 +699,7 @@ async def get_best_group_availability(id_req: int, group_id: int, authorization:
                 select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_([u.id for u in group.users]))).all()
             if slots is None:
                 raise HTTPException(status_code=404, detail="no such slots")
-            intersections = []
-            for day in DayOfWeek:
-                selected_slots = getBestIntervalIntersection(list(slots), day)
-                found = False
-                #using this to get around the fact that i cant use break statement
-                done = False
-                start_time = time()
-                end_time = time()
-                for indx, slot in enumerate(selected_slots[1]):
-                    if slot == selected_slots[0] and not found and not done:
-                        found = True
-                        start_time = time(indx // 2, (indx % 2) * 30)
-                    if slot != selected_slots[0] and found and not done:
-                        end_time = time(indx // 2, (indx % 2) * 30)
-                        done = True
-                intersections.append(AvailabilitySlot(user_id=1, day=day, time_range=(start_time, end_time)))
+            intersections = [getBestIntervalIntersection(list(slots), day)[1] for day in DayOfWeek]
             return intersections
     except HTTPException as e:
         raise e

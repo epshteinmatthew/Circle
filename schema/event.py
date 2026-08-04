@@ -154,7 +154,6 @@ class Event(EventCreate, table=True):
             return
         seen = False
         start = time()
-        end = time()
         #todo: some way to discriminate based on length of best interval.
         for indx, item in enumerate(intersect_list):
             if not seen and item == max_number:
@@ -162,8 +161,7 @@ class Event(EventCreate, table=True):
                 seen = True
             if seen and item != max_number:
                 #we are now on the first time outside the interval so we get the index before it
-                end = time((indx-1) // 2, ((indx-1) % 2) * 30)
-                self.best_poll_time = (start, end)
+                self.best_poll_time = (start, time((indx-1) // 2, ((indx-1) % 2) * 30))
                 return
 
 def create_event(data: EventCreate, polling: bool) -> Event:

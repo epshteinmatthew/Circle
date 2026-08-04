@@ -33,24 +33,41 @@ class AvailabilitySlot(SQLModel, table=True):
     )
 
 
-def getBestIntervalIntersection(slots: list[AvailabilitySlot], day: DayOfWeek):
+def getBestIntervalIntersection(slots: list[AvailabilitySlot], weekday: DayOfWeek):
     """Returns a tuple (max_number, max_indices) where max_number is the maximum number of intersecting slots, and max_indices is an array of indices which correspond to times when this intersection takes place.
     Any given index can be translated to a time by dividing the index by two to get the hours and multiplying the remainder by 30 to get the minutes"""
     intersect_list = [0] * 48
     max_number = 0
     for slot in slots:
-        if slot.day == day:
+        if slot.day == weekday:
             start = slot.time_range[0].hour * 2 + slot.time_range[0].minute // 30
             end = slot.time_range[1].hour * 2 + slot.time_range[1].minute // 30
             for i in range(start, end+1):
                 intersect_list[i] += 1
                 if intersect_list[i] > max_number:
                     max_number = intersect_list[i]
-    max_indices = []
+    best_slots = []
+    start = None
     for index, item in enumerate(intersect_list):
         if item == max_number:
-            max_indices.append(index)
-    return max_number, max_indices
+            if start is None:
+                start = time(index // 2, (index % 2) * 30)
+        elif start is not None:
+            best_slots.append(
+                AvailabilitySlot(
+                    day = weekday,
+                    time_range = (start, time(index // 2, (index % 2) * 30))
+                )
+            )
+            start = None
+    if start is not None:
+        best_slots.append(
+            AvailabilitySlot(
+                day=weekday,
+                time_range=(start, time(23, 30)),
+            )
+        )
+    return max_number, best_slots
 
 def getIntervalIntersections(slots: list[AvailabilitySlot], day: DayOfWeek):
     """Returns a list of 48 30-minute time intervals (corresponding to a full day) where the value of each item in the list corresponds to the amount of intervals in the slots param which intersect at the respective time."""

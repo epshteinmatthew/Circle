@@ -356,19 +356,25 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
     if not validate_uid(authorization, event_data.created_by):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
-        with get_session() as session:
+        with (get_session() as session):
             event: Event | None = session.exec(select(Event).where(Event.id == event_data.id, Event.created_by==event_data.created_by)).first()
             if event is None:
                 raise HTTPException(status_code=404, detail="no such event")
             if not polling and event.time_range != event_data.time_range:
                 event.rsvp_users = []
-                event.event_user_amount = 0
+                event.event_user_amount = 1
             event.name = event_data.name
             event.day = event_data.day
             event.time_range = event_data.time_range
             if len(event.poll_times) > 0 and not polling:
                 event.poll_times = []
-                event.time_range = event.best_poll_time
+                new_rsvp = [
+                    user
+                            for index, user in enumerate(event.rsvp_users)
+                                if event.poll_times[index + 1][0] <= event_data.time_range[1]
+                                and event_data.time_range[0] <= event.poll_times[index + 1][1]
+                ]
+                event.rsvp_users = new_rsvp
             session.add(event)
 
             session.commit()

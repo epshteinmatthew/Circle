@@ -48,6 +48,8 @@ def getBestIntervalIntersection(slots: list[AvailabilitySlot], weekday: DayOfWee
                     max_number = intersect_list[i]
     best_slots = []
     start = None
+    if max_number == 0:
+        return 0, []
     for index, item in enumerate(intersect_list):
         if item == max_number:
             if start is None:

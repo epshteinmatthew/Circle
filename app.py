@@ -131,11 +131,11 @@ async def logout(authorization: Annotated[str | None, Header()] = None):
         if authorization is None:
             raise HTTPException(status_code=403, detail="Not authorized")
         refresh = authorization
-        f = []
+        f = {}
         with open("refresh.json", "r") as fp:
             f = json.load(fp)
-        if refresh in f:
-            f.remove(refresh)
+        if refresh in f.keys():
+            f.pop(refresh)
         with open("refresh.json", "w") as fp:
             json.dump(fp = fp, obj= f)
         return "logged out"

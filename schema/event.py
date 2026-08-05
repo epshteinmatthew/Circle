@@ -180,3 +180,5 @@ class EventData(SQLModel):
     day: date
     time_range: tuple[time, time]
     created_by: int
+    address: str
+    location_name: str

@@ -381,9 +381,9 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
                 event.rsvp_users = new_rsvp
                 event.event_user_amount = len(new_rsvp) + 1
                 event.poll_times = []
-                event.address = event_data.address
-                event.location_name = event_data.location_name
             #could probably merge this with the if-clause above, but who cares
+            event.address = event_data.address
+            event.location_name = event_data.location_name
             if event_data.day != event.day:
                 event.rsvp_users = []
                 event.event_user_amount = 1

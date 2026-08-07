@@ -166,6 +166,7 @@ class Event(EventCreate, table=True):
 
 def create_event(data: EventCreate, polling: bool) -> Event:
     if data.time_range[0] > data.time_range[1]:
+        print("Hi!")
         raise InvalidArgument
     event = Event.model_validate(data.model_dump())
     event.best_poll_time = event.time_range

@@ -39,7 +39,8 @@ from fastapi_limiter.depends import RateLimiter
 def event_has_ended(event: Event, now: datetime | None = None) -> bool:
     now = now or datetime.now(timezone.utc)
     end = datetime.combine(event.day, event.time_range[1])
-    return end < now.replace(tzinfo=None)
+    return True
+    #end < now.replace(tzinfo=None)
 
 def delete_ended_events(session) -> None:
     now = datetime.now(timezone.utc).date()
@@ -601,7 +602,7 @@ async def leave_group(id_req: int, group_id: int, authorization: Annotated[str |
                 raise HTTPException(status_code=400, detail="user not in group")
             events: Sequence[Event] | None = session.exec(select(Event).where(or_(Event.group == group))).all()
             if events is not None:
-                events = [event for event in events if event.created_by == user.id or user.id in event.rsvp_users]
+                events = [event for event in events if event.created_by == user.id]
             #this is garbage
             if events is not None:
                 for event in events:

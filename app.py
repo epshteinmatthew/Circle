@@ -39,7 +39,7 @@ from fastapi_limiter.depends import RateLimiter
 def event_has_ended(event: Event, now: datetime | None = None) -> bool:
     now = now or datetime.now(timezone.utc)
     end = datetime.combine(event.day, event.time_range[1])
-    return True
+    return False
     #end < now.replace(tzinfo=None)
 
 def delete_ended_events(session) -> None:

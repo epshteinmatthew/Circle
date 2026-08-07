@@ -36,11 +36,9 @@ from setup import GOOGLE_CLIENT_ID
 from pyrate_limiter import Duration, Limiter, Rate
 from fastapi_limiter.depends import RateLimiter
 
-def event_has_ended(event: Event, now: datetime | None = None) -> bool:
-    now = now or datetime.now(timezone.utc)
-    end = datetime.combine(event.day, event.time_range[1])
-    return False
-    #end < now.replace(tzinfo=None)
+def event_has_ended(event: Event) -> bool:
+    end = datetime.combine(event.day, event.time_range[1], tzinfo=timezone.utc)
+    return end < datetime.now(timezone.utc)
 
 def delete_ended_events(session) -> None:
     now = datetime.now(timezone.utc).date()

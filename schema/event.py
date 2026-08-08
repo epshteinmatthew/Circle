@@ -9,7 +9,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from schema.interval_utils import parse_datetime as _parse_datetime, slot_index
 from schema.links import UserEventRSVPLink
-from schema.time_range import DateTimeRangeType
+from schema.time_range import DateTimeRangeType, round_datetime
 
 if TYPE_CHECKING:
     from schema.group import Group
@@ -175,12 +175,16 @@ class Event(EventCreate, table=True):
         return
 
 def create_event(data: EventCreate, polling: bool) -> Event:
-    if data.start_time > data.end_time:
+    start = round_datetime(data.start_time)
+    end = round_datetime(data.end_time)
+    if start > end:
         raise InvalidArgument
     event = Event.model_validate(data.model_dump())
-    event.best_poll_time = (event.start_time, event.end_time)
+    event.start_time = start
+    event.end_time = end
+    event.best_poll_time = (start, end)
     if polling:
-        event.poll_times.append((event.start_time, event.end_time))
+        event.poll_times.append((start, end))
     return event
 
 class EventData(SQLModel):

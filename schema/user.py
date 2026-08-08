@@ -1,14 +1,13 @@
-from datetime import time, date, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from google.api_core.exceptions import InvalidArgument
-from pydantic.v1 import BaseModel
-from sqlalchemy import Column, JSON, Enum
 from sqlmodel import Field, Relationship, SQLModel
 
-from schema.availabilities import AvailabilitySlot, DayOfWeek, getIntervalIntersections
+from schema.availabilities import AvailabilitySlot
+from schema.interval_utils import ranges_overlap
 from schema.links import UserEventRSVPLink, UserGroupLink, UserIncomingGroupLink
-from schema.time_range import roundTime, TimeRangeType
+from schema.time_range import roundTime
 
 if TYPE_CHECKING:
     from schema.event import Event
@@ -80,10 +79,15 @@ def create_user(data: UserCreate, availabilities: list[AvailabilitySlot]) -> Use
             )
             sanitized_availabilities.append(slot)
 
-    for day in DayOfWeek:
-        if getIntervalIntersections(sanitized_availabilities, day)[0] > 0:
-            raise InvalidArgument
-    
+    for i, slot_a in enumerate(sanitized_availabilities):
+        for slot_b in sanitized_availabilities[i + 1 :]:
+            if ranges_overlap(
+                slot_a.time_range[0],
+                slot_a.time_range[1],
+                slot_b.time_range[0],
+                slot_b.time_range[1],
+            ):
+                raise InvalidArgument
 
     user = User.model_validate(data.model_dump())
 
@@ -101,13 +105,13 @@ class EventSummary(SQLModel):
     description: str
     address: str
     location_name: str
-    day: date
-    time_range: tuple[time, time]
+    start_time: datetime
+    end_time: datetime
     created_by: int
     group_id: int
     created_at: datetime
-    poll_times: list[tuple[time, time]] = Field(default_factory=list)
-    best_poll_time: tuple[time, time] | None = None
+    poll_times: list[tuple[datetime, datetime]] = Field(default_factory=list)
+    best_poll_time: tuple[datetime, datetime] | None = None
     event_user_amount: int
 
 class DeepUser(SQLModel):

@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 
 from typing import Any, TYPE_CHECKING
 
@@ -7,24 +7,22 @@ from pydantic import field_validator, computed_field, model_validator
 from sqlalchemy import Column, ARRAY
 from sqlmodel import Field, Relationship, SQLModel
 
+from schema.interval_utils import parse_datetime as _parse_datetime
 from schema.links import UserEventRSVPLink
-from schema.time_range import TimeRangeType, _parse_time
 
 if TYPE_CHECKING:
     from schema.group import Group
     from schema.user import User
 
-from typing import Any
-from datetime import time
 from sqlalchemy import JSON as SAJSON, TypeDecorator
 from sqlalchemy.ext.mutable import MutableList
 
 
 class PollTimesType(TypeDecorator):
-  """Stores list[tuple[time, time]] as a nested JSON list of ISO time strings.
+  """Stores list[tuple[datetime, datetime]] as nested JSON ISO strings.
 
-  Db format: [["09:00:00", "10:00:00"], ["13:00:00", "14:00:00"]]
-  Python format: [(time(9, 0), time(10, 0)), (time(13, 0), time(14, 0))]
+  Db format: [["2026-08-08T22:00:00+00:00", "2026-08-09T00:00:00+00:00"], ...]
+  Python format: [(datetime(...), datetime(...)), ...]
   """
 
   impl = SAJSON
@@ -36,16 +34,36 @@ class PollTimesType(TypeDecorator):
       if value is None:
           return None
       return [
-          [_parse_time(t[0]).isoformat(), _parse_time(t[1]).isoformat()]
+          [_parse_datetime(t[0]).isoformat(), _parse_datetime(t[1]).isoformat()]
           for t in value
       ]
   def process_result_value(
       self, value: Any, dialect: Any
-  ) -> list[tuple[time, time]]:
+  ) -> list[tuple[datetime, datetime]]:
     if not value:
       return []
-    # Parse list of [str, str] back to list of (time, time) tuples
-    return [(_parse_time(item[0]), _parse_time(item[1])) for item in value]
+    return [(_parse_datetime(item[0]), _parse_datetime(item[1])) for item in value]
+
+
+class DateTimeRangeType(TypeDecorator):
+    """Store tuple[datetime, datetime] as JSON list of ISO datetime strings."""
+
+    impl = SAJSON
+    cache_ok = True
+
+    def process_bind_param(self, value: Any, dialect: Any) -> list[str] | None:
+        if value is None:
+            return None
+        start, end = value
+        return [_parse_datetime(start).isoformat(), _parse_datetime(end).isoformat()]
+
+    def process_result_value(
+        self, value: Any, dialect: Any
+    ) -> tuple[datetime, datetime] | None:
+        if value is None:
+            return None
+        return _parse_datetime(value[0]), _parse_datetime(value[1])
+
 
 class EventCreate(SQLModel):
     """Fields callers may provide when creating an event."""
@@ -56,8 +74,8 @@ class EventCreate(SQLModel):
     description: str
     address: str
     location_name: str
-    day: date
-    time_range: tuple[time, time]
+    start_time: datetime
+    end_time: datetime
     created_by: int
     group_id: int
 
@@ -66,8 +84,9 @@ class Event(EventCreate, table=True):
     id: int | None = Field(default=None, primary_key=True)
     group_id: int = Field(foreign_key="group.id")
     name:str = Field(index=True)
-    time_range: tuple[time, time] = Field(sa_column=Column(TimeRangeType))
-    created_at: datetime = Field(default_factory=datetime.now)
+    start_time: datetime = Field(index=True)
+    end_time: datetime = Field(index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     event_user_amount: int = Field(default=1)
 
     group: "Group" = Relationship()
@@ -76,22 +95,31 @@ class Event(EventCreate, table=True):
         link_model=UserEventRSVPLink,
     )
     # List of range tuples using PollTimesType wrapped with MutableList
-    poll_times: list[tuple[time, time]] = Field(
+    poll_times: list[tuple[datetime, datetime]] = Field(
         default_factory=list,
         sa_column=Column(MutableList.as_mutable(PollTimesType)),
     )
-    best_poll_time: tuple[time, time] | None = Field(
+    best_poll_time: tuple[datetime, datetime] | None = Field(
         default=None,
-        sa_column=Column(TimeRangeType, nullable=True),
+        sa_column=Column(DateTimeRangeType, nullable=True),
     )
 
-    @field_validator("time_range", mode="before")
+    @field_validator("start_time", "end_time", mode="before")
     @classmethod
-    def _coerce_time_range(cls, value: Any) -> Any:
+    def _coerce_datetime(cls, value: Any) -> Any:
+        if value is None or isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            return _parse_datetime(value)
+        return value
+
+    @field_validator("best_poll_time", mode="before")
+    @classmethod
+    def _coerce_best_poll_time(cls, value: Any) -> Any:
         if value is None or isinstance(value, tuple):
             return value
         if isinstance(value, list) and len(value) == 2:
-            return _parse_time(value[0]), _parse_time(value[1])
+            return _parse_datetime(value[0]), _parse_datetime(value[1])
         return value
 
     def add_rsvp(self, user: "User") -> bool:
@@ -166,7 +194,6 @@ class Event(EventCreate, table=True):
 
 def create_event(data: EventCreate, polling: bool) -> Event:
     if data.time_range[0] > data.time_range[1]:
-        print("Hi!")
         raise InvalidArgument
     event = Event.model_validate(data.model_dump())
     event.best_poll_time = event.time_range
@@ -178,8 +205,8 @@ class EventData(SQLModel):
     id: int
     name: str
     description: str
-    day: date
-    time_range: tuple[time, time]
+    start_time: datetime
+    end_time: datetime
     created_by: int
     address: str
     location_name: str

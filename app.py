@@ -25,26 +25,30 @@ from schema import (
     create_group,
     create_user,
 )
-from schema.availabilities import getIntervalIntersections, DayOfWeek, getBestIntervalIntersection
+from schema.availabilities import AvailabilitySlot
 from schema.database import get_session, init_db
 from schema.event import EventData
 from schema.group import GroupData
+from schema.interval_utils import (
+    ensure_utc,
+    getBestIntervalIntersection,
+    getIntervalIntersections,
+    ranges_overlap,
+)
 from schema.links import UserIncomingGroupLink
-from schema.time_range import roundTime
-from schema.user import AvailabilitySlot, DeepUser, GroupSummary, EventSummary
+from schema.time_range import roundTime, round_datetime
+from schema.user import DeepUser, GroupSummary, EventSummary
 from setup import GOOGLE_CLIENT_ID
 from pyrate_limiter import Duration, Limiter, Rate
 from fastapi_limiter.depends import RateLimiter
 
 def event_has_ended(event: Event) -> bool:
-    end = datetime.combine(event.day, event.time_range[1], tzinfo=timezone.utc)
-    return end < datetime.now(timezone.utc)
+    return ensure_utc(event.end_time) < datetime.now(timezone.utc)
 
 def delete_ended_events(session) -> None:
-    now = datetime.now(timezone.utc).date()
     ended = [
         e for e in session.exec(select(Event)).all()
-        if e.day < now
+        if event_has_ended(e)
     ]
     for e in ended:
         session.delete(e)
@@ -222,8 +226,8 @@ async def get_user_with_id(id_req, authorization: Annotated[str | None, Header()
                     email=user.email,
                     groups=[GroupSummary(id = group.id, name = group.name, created_by = group.created_by) for group in user.groups],
                     incoming_groups=[GroupSummary(id = group.id, name = group.name, created_by = group.created_by) for group in user.incoming_groups],
-                    rsvp_events=[EventSummary(id = event.id, name= event.name, description = event.description, address = event.address, location_name = event.location_name, day = event.day, time_range = event.time_range, created_by = event.created_by, group_id = event.group_id, created_at = event.created_at, poll_times = event.poll_times, best_poll_time = event.best_poll_time, event_user_amount = event.event_user_amount) for event in user.rsvp_events],
-                    created_events=[EventSummary(id = event.id, name= event.name, description = event.description, address = event.address, location_name = event.location_name, day = event.day, time_range = event.time_range, created_by = event.created_by, group_id = event.group_id, created_at = event.created_at, poll_times = event.poll_times, best_poll_time = event.best_poll_time, event_user_amount = event.event_user_amount) for event in created],
+                    rsvp_events=[EventSummary(id = event.id, name= event.name, description = event.description, address = event.address, location_name = event.location_name, start_time = event.start_time, end_time = event.end_time, created_by = event.created_by, group_id = event.group_id, created_at = event.created_at, poll_times = event.poll_times, best_poll_time = event.best_poll_time, event_user_amount = event.event_user_amount) for event in user.rsvp_events],
+                    created_events=[EventSummary(id = event.id, name= event.name, description = event.description, address = event.address, location_name = event.location_name, start_time = event.start_time, end_time = event.end_time, created_by = event.created_by, group_id = event.group_id, created_at = event.created_at, poll_times = event.poll_times, best_poll_time = event.best_poll_time, event_user_amount = event.event_user_amount) for event in created],
                 )
             raise HTTPException(status_code=404, detail="User not found")
     except HTTPException as e:
@@ -365,28 +369,39 @@ async def update_event(event_data: EventData,polling:bool, authorization: Annota
             event: Event | None = session.exec(select(Event).where(Event.id == event_data.id, Event.created_by==event_data.created_by)).first()
             if event is None:
                 raise HTTPException(status_code=404, detail="no such event")
-            if len(event.poll_times) <= 0 and event.time_range != event_data.time_range:
+            new_start = ensure_utc(event_data.start_time)
+            new_end = ensure_utc(event_data.end_time)
+            if new_start >= new_end:
+                raise HTTPException(status_code=400, detail="start_time must be before end_time")
+            old_start = ensure_utc(event.start_time)
+            old_end = ensure_utc(event.end_time)
+            if len(event.poll_times) <= 0 and (old_start, old_end) != (new_start, new_end):
                 event.rsvp_users = []
                 event.event_user_amount = 1
             event.name = event_data.name
-            event.time_range = event_data.time_range
             if len(event.poll_times) > 0 and not polling:
                 new_rsvp = [
                     user
-                            for index, user in enumerate(event.rsvp_users)
-                                if event.poll_times[index + 1][0] <= event_data.time_range[1]
-                                and event_data.time_range[0] <= event.poll_times[index + 1][1]
+                    for index, user in enumerate(event.rsvp_users)
+                    if ranges_overlap(
+                        event.poll_times[index + 1][0],
+                        event.poll_times[index + 1][1],
+                        new_start,
+                        new_end,
+                    )
                 ]
                 event.rsvp_users = new_rsvp
                 event.event_user_amount = len(new_rsvp) + 1
                 event.poll_times = []
+                event.best_poll_time = (new_start, new_end)
             #could probably merge this with the if-clause above, but who cares
             event.address = event_data.address
             event.location_name = event_data.location_name
-            if event_data.day != event.day:
+            if new_start.date() != old_start.date():
                 event.rsvp_users = []
                 event.event_user_amount = 1
-            event.day = event_data.day
+            event.start_time = new_start
+            event.end_time = new_end
             session.add(event)
 
             session.commit()
@@ -446,11 +461,10 @@ async def rsvp_to_event(id_req: int, uid:int,  authorization: Annotated[str | No
 
 
 class PollRsvpBody(SQLModel):
-    poll_time: tuple[time, time]
+    poll_time: tuple[datetime, datetime]
 
 @app.post("/rsvp_to_event_poll/{id_req}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
 async def rsvp_to_event_poll(id_req: int, uid:int, body: PollRsvpBody, authorization: Annotated[str | None, Header()] = None) -> Event:
-    poll_time = (roundTime(body.poll_time[0]), roundTime(body.poll_time[1]))
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -466,8 +480,11 @@ async def rsvp_to_event_poll(id_req: int, uid:int, body: PollRsvpBody, authoriza
                 raise HTTPException(status_code=404, detail="user not in group")
             if len(event.poll_times) == 0:
                 raise HTTPException(status_code=404, detail="not open to poll")
-            poll_time = (roundTime(poll_time[0]), roundTime(poll_time[1]))
-            if poll_time[0] > poll_time[1] or poll_time is None:
+            poll_time = (
+                round_datetime(body.poll_time[0]),
+                round_datetime(body.poll_time[1]),
+            )
+            if poll_time[0] >= poll_time[1]:
                 raise HTTPException(status_code=400, detail="bad poll time")
             event.add_poll_time(userList[0], poll_time)
             session.add(event)
@@ -688,11 +705,7 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
             slots: Sequence[AvailabilitySlot] | None = session.exec(select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_([u.id for u in group.users]))).all()
             if slots is None:
                 raise HTTPException(status_code=404, detail="no such slots")
-            intersections = {}
-            for day in DayOfWeek:
-                selected_slots = getIntervalIntersections(list(slots), day)
-                intersections[day.name] = selected_slots
-            return intersections
+            return {"all": getIntervalIntersections(list(slots))}
     except HTTPException as e:
         raise e
     except Exception as ex:
@@ -719,11 +732,10 @@ async def get_best_group_availability(id_req: int, group_id: int, authorization:
                 select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_([u.id for u in group.users]))).all()
             if slots is None:
                 raise HTTPException(status_code=404, detail="no such slots")
-            return [
-                slot
-                for day in DayOfWeek
-                for slot in getBestIntervalIntersection(list(slots), day)[1]
-            ]
+            result = getBestIntervalIntersection(list(slots), datetime.now(timezone.utc))
+            if result is None:
+                return []
+            return result[1]
     except HTTPException as e:
         raise e
     except Exception as ex:
@@ -748,9 +760,15 @@ async def add_availability(id_req:int, aSlot: AvailabilitySlot, authorization: A
                     )
                     sanitized_availabilities.append(slot)
 
-            for day in DayOfWeek:
-                if getIntervalIntersections(sanitized_availabilities, day)[0] > 0:
-                    raise HTTPException(status_code=400, detail="overlapping availabilities")
+            for i, slot_a in enumerate(sanitized_availabilities):
+                for slot_b in sanitized_availabilities[i + 1:]:
+                    if ranges_overlap(
+                        slot_a.time_range[0],
+                        slot_a.time_range[1],
+                        slot_b.time_range[0],
+                        slot_b.time_range[1],
+                    ):
+                        raise HTTPException(status_code=400, detail="overlapping availabilities")
             session.add(aSlot)
             session.commit()
             return sanitized_availabilities
@@ -783,9 +801,15 @@ async def update_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, 
                     )
                     sanitized_availabilities.append(slot)
 
-            for day in DayOfWeek:
-                if getIntervalIntersections(sanitized_availabilities, day)[0] > 0:
-                    raise HTTPException(status_code=400, detail="overlapping availabilities")
+            for i, slot_a in enumerate(sanitized_availabilities):
+                for slot_b in sanitized_availabilities[i + 1:]:
+                    if ranges_overlap(
+                        slot_a.time_range[0],
+                        slot_a.time_range[1],
+                        slot_b.time_range[0],
+                        slot_b.time_range[1],
+                    ):
+                        raise HTTPException(status_code=400, detail="overlapping availabilities")
             old_slot = aSlot
             session.add(old_slot)
             session.commit()

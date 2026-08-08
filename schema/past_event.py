@@ -1,9 +1,8 @@
 #class for events that have expired with a lot of RSVP's
 #store name, # of RSVP's
 #also have prediction stuff here
-from datetime import datetime, time
+from datetime import datetime, timezone
 
-from click import group
 from google.api_core.exceptions import InvalidArgument
 from sqlalchemy.orm import Relationship
 from sqlmodel import SQLModel, Field, select
@@ -37,7 +36,10 @@ def search_past_events(name:str):
 
 
 def create_past_event(event: Event) -> PastEvent:
-    if event.time_range[1] > time.fromisoformat(datetime.now().isoformat()) and event.day.day >= datetime.now().day:
+    end = event.end_time
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    if end > datetime.now(timezone.utc):
         raise InvalidArgument
 
     #here is where we search

@@ -1,6 +1,6 @@
 import enum
 from typing import Any, Optional
-from datetime import time, datetime, timedelta
+from datetime import time, datetime, timedelta, timezone
 
 from sqlalchemy import Column, Enum
 from sqlalchemy.types import TypeDecorator, JSON as SAJSON
@@ -30,6 +30,19 @@ def roundTime(value, roundTo=30 * 60):
     total = t.hour * 3600 + t.minute * 60 + t.second
     rounded = int((total + roundTo / 2) // roundTo * roundTo) % (24 * 3600)
     return time(rounded // 3600, (rounded % 3600) // 60, rounded % 60)
+
+
+def round_datetime(value: datetime, round_to: int = 30 * 60) -> datetime:
+    """Round a datetime to the nearest round_to seconds (default 30 minutes)."""
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    ts = int(value.timestamp())
+    rounded = int((ts + round_to / 2) // round_to * round_to)
+    return datetime.fromtimestamp(rounded, tz=timezone.utc)
 
 
 

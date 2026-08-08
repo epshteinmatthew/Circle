@@ -48,6 +48,19 @@ def round_datetime(value: datetime, round_to: int = 30 * 60) -> datetime:
 
 
 
+def _parse_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    if isinstance(value, str):
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    raise TypeError(f"Cannot parse datetime from {value!r}")
+
+
 class TimeRangeType(TypeDecorator):
     """Store tuple[time, time] as JSON list of ISO time strings."""
 
@@ -65,6 +78,26 @@ class TimeRangeType(TypeDecorator):
         if value is None:
             return None
         return _parse_time(value[0]), _parse_time(value[1])
+
+
+class DateTimeRangeType(TypeDecorator):
+    """Store tuple[datetime, datetime] as JSON list of ISO datetime strings."""
+
+    impl = SAJSON
+    cache_ok = True
+
+    def process_bind_param(self, value: Any, dialect: Any) -> list[str] | None:
+        if value is None:
+            return None
+        start, end = value
+        return [_parse_datetime(start).isoformat(), _parse_datetime(end).isoformat()]
+
+    def process_result_value(
+        self, value: Any, dialect: Any
+    ) -> tuple[datetime, datetime] | None:
+        if value is None:
+            return None
+        return _parse_datetime(value[0]), _parse_datetime(value[1])
 
 
 

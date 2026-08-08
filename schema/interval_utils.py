@@ -56,7 +56,7 @@ def getBestIntervalIntersection(slots: list[AvailabilitySlot], weekday_start: da
                 tzinfo=timezone.utc,
             ),
             datetime.combine(
-                (monday_this_week + timedelta(days=end_src.weekday())).date(),
+                (monday_this_week + timedelta(days=start_src.weekday() + (end_src.date() - start_src.date()).days)).date(),
                 end_src.timetz().replace(tzinfo=None),
                 tzinfo=timezone.utc,
             ),
@@ -88,14 +88,38 @@ def getBestIntervalIntersection(slots: list[AvailabilitySlot], weekday_start: da
     return 0,[]
 
 
-def getIntervalIntersections(slots: list[AvailabilitySlot],):
+def getIntervalIntersections(slots: list[AvailabilitySlot], weekday_start: datetime):
     """Returns a list of 48 30-minute time intervals (corresponding to a full day) where the value of each item in the list corresponds to the amount of intervals in the slots param which intersect at the respective time."""
-    intersect_list = [0] * 48
+    weekday_start = ensure_utc(weekday_start)
+    monday_this_week = weekday_start - timedelta(days=weekday_start.weekday())
+    monday_this_week = monday_this_week.replace(hour=0, minute=0, second=0, microsecond=0)
+    datetime_slots = []
     for slot in slots:
-        if slot.day == day:
-            start = slot.time_range[0].hour * 2 + slot.time_range[0].minute // 30
-            end = slot.time_range[1].hour * 2 + slot.time_range[1].minute // 30
-            for i in range(start, end+1):
-                intersect_list[i] += 1
-
-    return intersect_list
+        start_src = ensure_utc(slot.time_range[0])
+        end_src = ensure_utc(slot.time_range[1])
+        reset_time = (
+            datetime.combine(
+                (monday_this_week + timedelta(days=start_src.weekday())).date(),
+                start_src.timetz().replace(tzinfo=None),
+                tzinfo=timezone.utc,
+            ),
+            datetime.combine(
+                (monday_this_week + timedelta(
+                    days=start_src.weekday() + (end_src.date() - start_src.date()).days)).date(),
+                end_src.timetz().replace(tzinfo=None),
+                tzinfo=timezone.utc,
+            ),
+        )
+        if ranges_overlap(reset_time[0], reset_time[1], weekday_start, weekday_start + timedelta(days=1)):
+            datetime_slots.append(reset_time)
+    if len(datetime_slots) == 0:
+        return 0, []
+    earliest: datetime = min([slot[0] for slot in datetime_slots])
+    latest: datetime = max([slot[1] for slot in datetime_slots])
+    # +1 because the count loop includes the end slot index.
+    diff = int((latest - earliest).total_seconds() // 1800) + 1
+    counts = [0] * diff
+    for start, end in datetime_slots:
+        for i in range(slot_index(start, earliest), slot_index(end, earliest) + 1):
+            counts[i] += 1
+    return counts, earliest, latest

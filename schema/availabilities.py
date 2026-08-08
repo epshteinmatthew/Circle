@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Column
 from sqlmodel import Field, SQLModel
 
-from schema.time_range import TimeRangeType
+from schema.time_range import DateTimeRangeType
 
 
 class AvailabilitySlot(SQLModel, table=True):
@@ -14,7 +14,7 @@ class AvailabilitySlot(SQLModel, table=True):
     # Foreign key referencing the users table
     user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
 
-    # Use your original custom TimeRangeType here via sa_column!
+    # Weekly template stored as datetimes (weekday + time matter; calendar date is a carrier).
     time_range: tuple[datetime, datetime] = Field(
-        sa_column=Column(TimeRangeType, nullable=False)
+        sa_column=Column(DateTimeRangeType, nullable=False)
     )

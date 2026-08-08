@@ -78,7 +78,11 @@ def getBestIntervalIntersection(slots: list[AvailabilitySlot], weekday_start: da
                 start = weekday_start + timedelta( minutes=indx  * 30)
             elif start is not None:
                 # we are now on the first time outside the interval so we get the index before it
-                best_slots.append((start, weekday_start + timedelta(minutes=30 * (indx-1))))
+                best_slots.append(
+                    AvailabilitySlot(
+                        user_id=1,
+                        time_range=(start, weekday_start + timedelta(minutes=30 * (indx-1))))
+                )
     if start is not None:
         best_slots.append(
             AvailabilitySlot(

@@ -7,7 +7,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from schema.availabilities import AvailabilitySlot
 from schema.interval_utils import ranges_overlap
 from schema.links import UserEventRSVPLink, UserGroupLink, UserIncomingGroupLink
-from schema.time_range import roundTime
+from schema.time_range import roundTime, round_datetime
 
 if TYPE_CHECKING:
     from schema.event import Event
@@ -74,8 +74,8 @@ def create_user(data: UserCreate, availabilities: list[AvailabilitySlot]) -> Use
     for slot in availabilities:
         if slot.time_range[0] < slot.time_range[1]:
             slot.time_range = (
-                roundTime(slot.time_range[0]),
-                roundTime(slot.time_range[1]),
+                round_datetime(slot.time_range[0]),
+                round_datetime(slot.time_range[1]),
             )
             sanitized_availabilities.append(slot)
 

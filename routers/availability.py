@@ -17,7 +17,7 @@ from schema.interval_utils import (
     getIntervalIntersections,
     ranges_overlap,
 )
-from schema.time_range import roundTime
+from schema.time_range import roundTime, round_datetime
 
 router = APIRouter(tags=["availability"])
 
@@ -39,7 +39,7 @@ async def get_user_availabilities(id_req: int, authorization: Annotated[str | No
 
 
 @router.get("/get_group_availabilities/{id_req}/{group_id}", dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
-async def get_group_availabilities(id_req: int, group_id:int, authorization: Annotated[str | None, Header()] = None) -> dict[str, list[int]]:
+async def get_group_availabilities(id_req: int, group_id:int, weekday_start: datetime, authorization: Annotated[str | None, Header()] = None) -> dict[str, list[int]]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -56,7 +56,7 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
             slots: Sequence[AvailabilitySlot] | None = session.exec(select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_([u.id for u in group.users]))).all()
             if slots is None:
                 raise HTTPException(status_code=404, detail="no such slots")
-            return {"all": getIntervalIntersections(list(slots))}
+            return {"all": getIntervalIntersections(list(slots), weekday_start)}
     except HTTPException as e:
         raise e
     except Exception as ex:
@@ -65,7 +65,7 @@ async def get_group_availabilities(id_req: int, group_id:int, authorization: Ann
 
 @router.get("/get_group_best_availabilities/{id_req}/{group_id}",
          dependencies=[Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
-async def get_best_group_availability(id_req: int, group_id: int, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
+async def get_best_group_availability(id_req: int, group_id: int, weekday_start: datetime, authorization: Annotated[str | None, Header()] = None) -> list[AvailabilitySlot]:
     if not validate_uid(authorization, id_req):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -83,7 +83,7 @@ async def get_best_group_availability(id_req: int, group_id: int, authorization:
                 select(AvailabilitySlot).where(col(AvailabilitySlot.user_id).in_([u.id for u in group.users]))).all()
             if slots is None:
                 raise HTTPException(status_code=404, detail="no such slots")
-            result = getBestIntervalIntersection(list(slots), datetime.now(timezone.utc))
+            result = getBestIntervalIntersection(list(slots), weekday_start)
             if result is None:
                 return []
             return result[1]
@@ -107,8 +107,8 @@ async def add_availability(id_req:int, aSlot: AvailabilitySlot, authorization: A
             for slot in availabilities:
                 if slot.time_range[0] < slot.time_range[1]:
                     slot.time_range = (
-                        roundTime(slot.time_range[0]),
-                        roundTime(slot.time_range[1]),
+                        round_datetime(slot.time_range[0]),
+                        round_datetime(slot.time_range[1]),
                     )
                     sanitized_availabilities.append(slot)
 
@@ -148,8 +148,8 @@ async def update_availability(id_req: int,slot_id:int, aSlot: AvailabilitySlot, 
             for slot in availabilities:
                 if slot.time_range[0] < slot.time_range[1]:
                     slot.time_range = (
-                        roundTime(slot.time_range[0]),
-                        roundTime(slot.time_range[1]),
+                        round_datetime(slot.time_range[0]),
+                        round_datetime(slot.time_range[1]),
                     )
                     sanitized_availabilities.append(slot)
 

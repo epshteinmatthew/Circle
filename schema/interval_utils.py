@@ -65,27 +65,29 @@ def getBestIntervalIntersection(slots: list[AvailabilitySlot], weekday_start: da
             datetime_slots.append(reset_time)
     if len(datetime_slots) == 0:
         return 0, []
-    earliest: datetime = min([slot[0] for slot in datetime_slots])
-    latest: datetime = max([slot[1] for slot in datetime_slots])
-    # +1 because the count loop includes the end slot index.
-    diff = int((latest - earliest).total_seconds() // 1800) + 1
-    counts = [0] * diff
+    counts = [0] * 48
     for start, end in datetime_slots:
-        for i in range(slot_index(start, earliest), slot_index(end, earliest) + 1):
+        for i in range(max(0,slot_index(start, weekday_start)), slot_index(end, weekday_start) + 1):
             counts[i] += 1
     max_count = max(counts) if counts else 0
-    seen = False
-    start = datetime.now()
+    start = None
+    best_slots = []
     for indx, item in enumerate(counts):
-        if not seen and item == max_count:
-            start = earliest + timedelta( minutes=indx  * 30)
-            seen = True
-        if seen and item != max_count:
-            # we are now on the first time outside the interval so we get the index before it
-            return max_count, (start, earliest + timedelta(minutes=30 * (indx-1)))
-    if seen:
-        return max_count, (start, earliest + timedelta(minutes=30 * len(counts)))
-    return 0,[]
+        if item == max_count:
+            if start is None:
+                start = weekday_start + timedelta( minutes=indx  * 30)
+            elif start is not None:
+                # we are now on the first time outside the interval so we get the index before it
+                best_slots.append((start, weekday_start + timedelta(minutes=30 * (indx-1))))
+    if start is not None:
+        best_slots.append(
+            AvailabilitySlot(
+                user_id=1,
+                time_range=(start, datetime(start.year, start.month, start.day, 23, 30, 00)),
+            )
+        )
+    return max_count, best_slots
+
 
 
 def getIntervalIntersections(slots: list[AvailabilitySlot], weekday_start: datetime):
@@ -112,14 +114,8 @@ def getIntervalIntersections(slots: list[AvailabilitySlot], weekday_start: datet
         )
         if ranges_overlap(reset_time[0], reset_time[1], weekday_start, weekday_start + timedelta(days=1)):
             datetime_slots.append(reset_time)
-    if len(datetime_slots) == 0:
-        return 0, []
-    earliest: datetime = min([slot[0] for slot in datetime_slots])
-    latest: datetime = max([slot[1] for slot in datetime_slots])
-    # +1 because the count loop includes the end slot index.
-    diff = int((latest - earliest).total_seconds() // 1800) + 1
-    counts = [0] * diff
+    counts = [0] * 48
     for start, end in datetime_slots:
-        for i in range(slot_index(start, earliest), slot_index(end, earliest) + 1):
+        for i in range(max(0,slot_index(start, weekday_start)), slot_index(end, weekday_start) + 1):
             counts[i] += 1
-    return counts, earliest, latest
+    return counts

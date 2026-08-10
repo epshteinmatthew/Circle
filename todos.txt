@@ -12,10 +12,7 @@ Features:
     shared photo album (memories)
 
 Deployment/Security:
-    do another DB reset
     go thru and give types to everything
-    figure out where to store DB
-    figure out where to host server (maybe allen school servers?)
 
 Optimizations:
     think about a document based database

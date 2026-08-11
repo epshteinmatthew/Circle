@@ -33,16 +33,21 @@ class Group(GroupCreate, table=True):
         link_model=UserIncomingGroupLink
     )
 
-    def add_request(self, user: "User") -> bool:
-        if user in self.users or user in self.user_requests:
-            return False
-        self.user_requests.append(user)
-        return True
+    def add_request(self, user: "User", sender: "User") -> UserIncomingGroupLink | None:
+        if user in self.users or user in self.user_requests or sender not in Group:
+            return None
+        link = UserIncomingGroupLink(
+            user_id=user.id,
+            group_id=self.id,
+            sender_id=sender.id,
+        )
+        return link
 
     def add_user(self, user: "User") -> bool:
         if user in self.users:
             return False
         self.users.append(user)
+        self.user_requests.remove(user)
         return True
 
     def remove_user(self, user: "User") -> bool:

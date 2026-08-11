@@ -1,5 +1,6 @@
 """Group routes."""
 from collections.abc import Sequence
+from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -12,7 +13,13 @@ from routers.event import event_has_ended
 from schema import Event, Group, GroupCreate, User, create_group
 from schema.database import get_session
 from schema.group import GroupData
+from schema.links import UserIncomingGroupLink
 
+
+class Response(Enum):
+    YES = "YES"
+    NO = "NO"
+    BLOCK = "BLOCK"
 router = APIRouter(tags=["group"])
 
 
@@ -43,7 +50,6 @@ async def add_to_group(id_req:int, group_id: int, added_user_email: str, authori
         raise HTTPException(status_code=403, detail="not authorized")
     try:
         with get_session() as session:
-
             group:Group|None = session.exec(select(Group).where(Group.id == group_id)).first()
             added_user: User|None = session.exec(select(User).where(User.email == added_user_email)).first()
             if group is None:
@@ -51,6 +57,8 @@ async def add_to_group(id_req:int, group_id: int, added_user_email: str, authori
             if added_user is None:
                 raise HTTPException(status_code=404, detail="no such user")
             user_id_list = [user.id for user in group.users]
+            if id_req in [user.id for user in added_user.blocked_users]:
+                raise HTTPException(status_code=404, detail="user blocked")
             if id_req not in user_id_list or added_user.id in user_id_list or added_user.id in [user.id for user in group.user_requests]:
                 raise HTTPException(status_code=400, detail="wrong users")
             if len(group.users) + len(group.user_requests) < 20:
@@ -67,7 +75,7 @@ async def add_to_group(id_req:int, group_id: int, added_user_email: str, authori
 
 
 @router.post("/respond_user_request/{id_req}/{response}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
-async def respond_user_request(id_req: int, uid: int, response: bool, authorization: Annotated[str | None, Header()] = None):
+async def respond_user_request(id_req: int, uid: int, response: Enum, authorization: Annotated[str | None, Header()] = None):
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -80,10 +88,18 @@ async def respond_user_request(id_req: int, uid: int, response: bool, authorizat
                 raise HTTPException(status_code=404, detail="no such user")
             if uid not in [user.id for user in group.user_requests]:
                 raise HTTPException(status_code=400, detail="wrong users")
-            if response:
-                group.users.append(added_user)
+            if response == Response.YES:
+                group.add_user(added_user)
+            elif response == Response.NO:
                 group.user_requests.remove(added_user)
-            if not response:
+            elif response == Response.BLOCK:
+                link = session.get(UserIncomingGroupLink, (uid, id_req))
+                if link is None:
+                    raise HTTPException(status_code=400, detail="wrong users")
+                blocked_user:User | None = session.exec(select(User).where(User.id == link.sender_id)).first()
+                if blocked_user is None:
+                    raise HTTPException(status_code=400, detail="wrong users")
+                added_user.add_block(blocked_user)
                 group.user_requests.remove(added_user)
             session.commit()
     except HTTPException as e:

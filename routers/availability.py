@@ -1,6 +1,7 @@
 """Availability routes."""
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -20,6 +21,7 @@ from schema.interval_utils import (
 from schema.time_range import roundTime, round_datetime
 
 router = APIRouter(tags=["availability"])
+
 
 
 @router.get("/get_user_availabilities/{id_req}",  dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])

@@ -3,7 +3,12 @@ from sqlmodel import Session, SQLModel, create_engine
 # Import models so SQLModel.metadata registers all tables.
 from schema.event import Event  # noqa: F401
 from schema.group import Group  # noqa: F401
-from schema.links import UserEventRSVPLink, UserGroupLink, UserIncomingGroupLink  # noqa: F401
+from schema.links import (  # noqa: F401
+    UserBlockLink,
+    UserEventRSVPLink,
+    UserGroupLink,
+    UserIncomingGroupLink,
+)
 from schema.user import User  # noqa: F401
 
 DATABASE_URL = "sqlite:///circle.db"

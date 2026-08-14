@@ -6,7 +6,12 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from schema.availabilities import AvailabilitySlot
 from schema.interval_utils import ranges_overlap
-from schema.links import UserEventRSVPLink, UserGroupLink, UserIncomingGroupLink
+from schema.links import (
+    UserBlockLink,
+    UserEventRSVPLink,
+    UserGroupLink,
+    UserIncomingGroupLink,
+)
 from schema.time_range import roundTime, round_datetime
 
 if TYPE_CHECKING:
@@ -38,7 +43,15 @@ class User(UserCreate, table=True):
 
     incoming_groups: list["Group"] = Relationship(
         back_populates="user_requests",
-        link_model=UserIncomingGroupLink
+        link_model=UserIncomingGroupLink,
+    )
+
+    blocked_users: list["User"] = Relationship(
+        link_model=UserBlockLink,
+        sa_relationship_kwargs={
+            "primaryjoin": "User.id==UserBlockLink.blocker_id",
+            "secondaryjoin": "User.id==UserBlockLink.blocked_id",
+        },
     )
 
     def add_event_rsvp(self, event: "Event") -> bool:
@@ -64,6 +77,19 @@ class User(UserCreate, table=True):
             return False
         self.groups.remove(group)
         return True
+
+    def add_block(self, user: "User") -> bool:
+        if user is self or user in self.blocked_users:
+            return False
+        self.blocked_users.append(user)
+        return True
+
+    def remove_block(self, user: "User") -> bool:
+        if user not in self.blocked_users:
+            return False
+        self.blocked_users.remove(user)
+        return True
+
 
 
 
@@ -99,6 +125,10 @@ class GroupSummary(SQLModel):
     name: str
     created_by: int
 
+class UserSummary(SQLModel):
+    id: int
+    name: str
+
 class EventSummary(SQLModel):
     id: int
     name: str
@@ -122,4 +152,5 @@ class DeepUser(SQLModel):
     incoming_groups: list[GroupSummary] = Field(default_factory=list)
     created_events: list[EventSummary] = Field(default_factory=list)
     rsvp_events: list[EventSummary] = Field(default_factory=list)
+    blocked_users: list[UserSummary] = Field(default_factory=list)
 

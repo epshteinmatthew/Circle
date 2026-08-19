@@ -9,6 +9,7 @@ from routers.event import router as event_router
 from routers.group import router as group_router
 from routers.user import router as user_router
 from schema.database import init_db
+from util.typeahead import TypeAhead
 
 #todo: deep event, deep group (do we need this?)
 #deep event: get the event and all of the users for RSVP and the user for create
@@ -20,6 +21,9 @@ app.include_router(event_router)
 app.include_router(availability_router)
 
 init_db()
+
+
+typeahead = TypeAhead()
 
 
 @app.get("/", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(1, Duration.SECOND * 5))))])

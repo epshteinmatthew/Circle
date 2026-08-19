@@ -30,24 +30,36 @@ class Group(GroupCreate, table=True):
 
     user_requests: list["User"] = Relationship(
         back_populates="incoming_groups",
-        link_model=UserIncomingGroupLink
+        link_model=UserIncomingGroupLink,
+        sa_relationship_kwargs={
+            "primaryjoin": "Group.id == UserIncomingGroupLink.group_id",
+            "secondaryjoin": "User.id == UserIncomingGroupLink.user_id",
+            "foreign_keys": "[UserIncomingGroupLink.group_id, UserIncomingGroupLink.user_id]",
+        },
     )
 
     def add_request(self, user: "User", sender: "User") -> UserIncomingGroupLink | None:
-        if user in self.users or user in self.user_requests or sender not in Group:
+        if (
+            user in self.users
+            or user in self.user_requests
+            or sender not in self.users
+            or self.id is None
+            or user.id is None
+            or sender.id is None
+        ):
             return None
-        link = UserIncomingGroupLink(
+        return UserIncomingGroupLink(
             user_id=user.id,
             group_id=self.id,
             sender_id=sender.id,
         )
-        return link
 
     def add_user(self, user: "User") -> bool:
         if user in self.users:
             return False
         self.users.append(user)
-        self.user_requests.remove(user)
+        if user in self.user_requests:
+            self.user_requests.remove(user)
         return True
 
     def remove_user(self, user: "User") -> bool:
@@ -61,8 +73,6 @@ def create_group(data: GroupCreate, created_by: "User", users: Sequence["User"])
     """Build a new Group from caller-provided fields only."""
     group = Group.model_validate({"name": data.name, "created_by": data.created_by})
     group.add_user(created_by)
-    for user in users:
-        group.add_request(user)
     return group
 
 

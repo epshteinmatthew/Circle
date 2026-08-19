@@ -17,6 +17,7 @@ from schema import User, UserCreate, create_user
 from schema.availabilities import AvailabilitySlot
 from schema.database import get_session
 from setup import GOOGLE_CLIENT_ID
+from util.typeahead import TypeAhead
 
 router = APIRouter(tags=["auth"])
 
@@ -189,6 +190,9 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
                     slot.user_id = new_user.id
                     session.add(slot)
                 session.commit()
+                t = TypeAhead.getInstance()
+                if t is not None:
+                    t.build_from_db()
                 encoded_jwt = jwt.encode(
                     {
                         "cid": idinfo["aud"],

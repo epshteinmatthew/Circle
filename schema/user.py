@@ -44,6 +44,11 @@ class User(UserCreate, table=True):
     incoming_groups: list["Group"] = Relationship(
         back_populates="user_requests",
         link_model=UserIncomingGroupLink,
+        sa_relationship_kwargs={
+            "primaryjoin": "User.id == UserIncomingGroupLink.user_id",
+            "secondaryjoin": "Group.id == UserIncomingGroupLink.group_id",
+            "foreign_keys": "[UserIncomingGroupLink.user_id, UserIncomingGroupLink.group_id]",
+        },
     )
 
     blocked_users: list["User"] = Relationship(

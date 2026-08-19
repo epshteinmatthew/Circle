@@ -10,6 +10,7 @@ from routers.event import delete_ended_events, event_has_ended
 from schema import Event, Group, User
 from schema.database import get_session
 from schema.user import DeepUser, GroupSummary, EventSummary, UserSummary
+from util.typeahead import TypeAhead
 
 router = APIRouter(tags=["user"])
 
@@ -31,6 +32,9 @@ async def update_username(id_req, new_name:str, authorization: Annotated[str | N
                 session.add(user)
                 session.commit()
                 session.refresh(user)
+                t = TypeAhead.getInstance()
+                if t is not None:
+                    t.build_from_db()
                 return user
             raise HTTPException(status_code=404, detail="User not found")
     except HTTPException as e:
@@ -157,6 +161,23 @@ async def remove_block(id_req:int,blocked_user_id: int, authorization: Annotated
                 else:
                     raise HTTPException(status_code=500, detail="failed to block")
             raise HTTPException(status_code=404, detail="User not found")
+    except HTTPException as e:
+        raise e
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=repr(ex))
+
+
+@router.get("/usernames_with_prefix")
+async def get_usernames_with_prefix(id_req:int,prefix: str, authorization: Annotated[str | None, Header()] = None) -> list[str]:
+    if not validate_uid(authorization, id_req):
+        raise HTTPException(status_code=403, detail="not authorized")
+    if not id_req:
+        raise HTTPException(status_code=400, detail="Bad request")
+    try:
+        t = TypeAhead.getInstance()
+        if t is not None:
+            return t.get_with_prefix(prefix)
+        return []
     except HTTPException as e:
         raise e
     except Exception as ex:

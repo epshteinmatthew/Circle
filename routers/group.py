@@ -84,7 +84,7 @@ async def add_to_group(id_req:int, group_id: int, added_user_name: str, authoriz
 
 
 @router.post("/respond_user_request/{id_req}/{response}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
-async def respond_user_request(id_req: int, uid: int, response: Enum, authorization: Annotated[str | None, Header()] = None):
+async def respond_user_request(id_req: int, uid: int, response: Response, authorization: Annotated[str | None, Header()] = None):
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:

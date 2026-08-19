@@ -33,5 +33,5 @@ class TypeAhead:
 
     def get_with_prefix(self, prefix:str):
         #get first three?
-        return self.trie.prefixes(prefix)
+        return self.trie.keys(prefix)
 

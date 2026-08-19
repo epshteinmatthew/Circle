@@ -16,10 +16,6 @@ from schema.group import GroupData
 from schema.links import UserIncomingGroupLink
 
 
-class Response(Enum):
-    YES = "YES"
-    NO = "NO"
-    BLOCK = "BLOCK"
 router = APIRouter(tags=["group"])
 
 
@@ -83,8 +79,8 @@ async def add_to_group(id_req:int, group_id: int, added_user_name: str, authoriz
         raise HTTPException(status_code=500, detail=repr(ex))
 
 
-@router.post("/respond_user_request/{id_req}/{response}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
-async def respond_user_request(id_req: int, uid: int, response: Response, authorization: Annotated[str | None, Header()] = None):
+@router.post("/respond_user_request/{id_req}/{response}/{block}", dependencies=[ Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.SECOND * 2))))])
+async def respond_user_request(id_req: int, uid: int, response: bool, block:bool, authorization: Annotated[str | None, Header()] = None):
     if not validate_uid(authorization, uid):
         raise HTTPException(status_code=403, detail="not authorized")
     try:
@@ -97,11 +93,7 @@ async def respond_user_request(id_req: int, uid: int, response: Response, author
                 raise HTTPException(status_code=404, detail="no such user")
             if uid not in [user.id for user in group.user_requests]:
                 raise HTTPException(status_code=400, detail="wrong users")
-            if response == Response.YES:
-                group.add_user(added_user)
-            elif response == Response.NO:
-                group.user_requests.remove(added_user)
-            elif response == Response.BLOCK:
+            if block:
                 link = session.get(UserIncomingGroupLink, (uid, id_req))
                 if link is None:
                     raise HTTPException(status_code=400, detail="wrong users")
@@ -110,6 +102,12 @@ async def respond_user_request(id_req: int, uid: int, response: Response, author
                     raise HTTPException(status_code=400, detail="wrong users")
                 added_user.add_block(blocked_user)
                 group.user_requests.remove(added_user)
+            else:
+                if response:
+                    group.add_user(added_user)
+                else:
+                    group.user_requests.remove(added_user)
+
             session.commit()
     except HTTPException as e:
         raise e

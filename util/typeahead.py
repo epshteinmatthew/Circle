@@ -29,9 +29,10 @@ class TypeAhead:
             users:Sequence[User] | None = se.exec(select(User)).all()
             if users is None:
                 return
-            self.trie = marisa_trie.Trie([user.name.lower() for user in users])
+            self.trie = marisa_trie.Trie([user.name for user in users])
 
     def get_with_prefix(self, prefix:str):
         #get first three?
-        return self.trie.keys(prefix.lower())
+        #how to handle case? not sure...
+        return self.trie.keys(prefix)
 

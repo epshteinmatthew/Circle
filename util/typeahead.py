@@ -7,7 +7,7 @@ from schema.database import get_session
 
 
 class TypeAhead:
-    __instance: TypeAhead | None = None
+    __instance: "TypeAhead | None" = None
 
     @staticmethod
     def getInstance():

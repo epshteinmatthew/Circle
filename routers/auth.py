@@ -212,4 +212,5 @@ def sign_up(user_data: UserCreate, availabilities: list[AvailabilitySlot], token
     except HTTPException as e:
         raise e
     except Exception as ex:
+        print(repr(ex))
         raise HTTPException(status_code=500, detail=repr(ex))
